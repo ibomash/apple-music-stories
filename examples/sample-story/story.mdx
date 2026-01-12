@@ -1,0 +1,49 @@
+---
+schema_version: 0.1
+id: "sample-night-drive"
+title: "After Midnight on Coastal FM"
+subtitle: "A short, fictional music story"
+authors: ["A. Example"]
+publish_date: "2026-01-12"
+tags: ["night", "radio", "fiction"]
+locale: "en-US"
+hero_image:
+  src: "https://example.com/hero.jpg"
+  alt: "Blurred city lights on wet pavement"
+  credit: "Sample Photographer"
+sections:
+  - id: intro
+    title: "Signal Check"
+    layout: "lede"
+    lead_media: "trk-echo"
+  - id: drift
+    title: "Drift"
+    layout: "body"
+    lead_media: "alb-dawn"
+media:
+  - key: "trk-echo"
+    type: "track"
+    apple_music_id: "111111111"
+    title: "Echo Lane"
+    artist: "The Static"
+    artwork_url: "https://example.com/echo.jpg"
+    duration_ms: 198000
+  - key: "alb-dawn"
+    type: "album"
+    apple_music_id: "222222222"
+    title: "Dawn Lines"
+    artist: "The Static"
+    artwork_url: "https://example.com/dawn.jpg"
+---
+
+<Section id="intro" title="Signal Check" layout="lede">
+The broadcast tower blinks in the drizzle, and the city exhales a blue hum. Tonight’s playlist is less about hits and more about the space between them.
+
+<MediaRef ref="trk-echo" intent="autoplay" />
+</Section>
+
+<Section id="drift" title="Drift" layout="body">
+By the second chorus, the cab headlights have softened into watercolor streaks. The album’s slow climb feels like watching the horizon wake up one note at a time.
+
+<MediaRef ref="alb-dawn" intent="preview" />
+</Section>
