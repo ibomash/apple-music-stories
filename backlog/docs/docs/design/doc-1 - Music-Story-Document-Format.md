@@ -75,6 +75,16 @@ media:
 </Section>
 ```
 
+### Field Requirements & Renderer Fallbacks
+- **Required fields**: `schema_version`, `id`, `title`, `authors`, `publish_date`, `sections`, `media`.
+- **Optional fields**: `subtitle`, `editors`, `tags`, `locale`, `hero_image`, section `layout`, section `lead_media`, media `artwork_url`, media `duration_ms`.
+- **Hero image fallback**: If `hero_image` is missing, render with a neutral gradient or brand fallback and hide photo credit.
+- **Subtitle fallback**: If `subtitle` is missing, omit the dek block and tighten spacing.
+- **Editors/tags/locale**: Omit labels if missing; renderer defaults locale to UI locale if not specified.
+- **Section layout**: Default `layout` to `body` if omitted.
+- **Section lead media**: If `lead_media` is missing or invalid, do not render a hero player for the section.
+- **Media metadata**: If `artwork_url` or `duration_ms` is missing, render the component with title + artist only; optionally show a generic artwork placeholder.
+
 ### Required MDX Components (Minimal)
 - `Section`: groups content blocks, sets `id`, `title`, and optional `layout`.
 - `MediaRef`: embeds a media reference by `ref` and optional `intent` (preview/full, autoplay).
