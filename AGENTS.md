@@ -13,3 +13,7 @@ This project uses the labels: (to come)
 ## Coding
 
 This project uses Python 3.13 and Swift 6.2.
+
+## Story Authoring
+
+Use `AGENTS-authoring.md` for the authoring-only prompt and guidance.
