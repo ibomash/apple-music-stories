@@ -1,9 +1,10 @@
 ---
 id: task-7
 title: Add MusicKit JS authorization
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-12 18:58'
+updated_date: '2026-01-12 19:40'
 labels: []
 dependencies: []
 ---

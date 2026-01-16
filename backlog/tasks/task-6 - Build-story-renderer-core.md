@@ -1,9 +1,10 @@
 ---
 id: task-6
 title: Build story renderer core
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-12 18:57'
+updated_date: '2026-01-12 19:40'
 labels: []
 dependencies: []
 ---

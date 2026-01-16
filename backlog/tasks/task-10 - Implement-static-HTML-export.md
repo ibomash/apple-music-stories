@@ -1,9 +1,10 @@
 ---
 id: task-10
 title: Implement static HTML export
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-12 18:58'
+updated_date: '2026-01-15 21:48'
 labels: []
 dependencies: []
 ---
