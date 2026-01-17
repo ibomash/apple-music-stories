@@ -10,7 +10,7 @@ Define the architecture for the iOS music story renderer, aligning with the MDX 
 
 ## Goals
 - Render story packages (`story.mdx` + `assets/`) into a single-scroll, magazine-like reading experience.
-- Preserve the fallbacks and schema behaviors defined in `doc-1` and match the narrative tone set by the HTML renderer.
+- Preserve the fallbacks and schema behaviors defined in `doc-1 - Music-Story-Document-Format` and match the narrative tone set by the HTML renderer.
 - Integrate MusicKit playback with a shared queue and persistent playback bar.
 - Keep the app modular so new block types (pull quotes, timelines, footnotes) are easy to add.
 
@@ -29,11 +29,14 @@ The app is split into four primary layers:
 ## Modules & Responsibilities
 - **StoryPackageLoader**
   - Resolves a story bundle (`story.mdx` + `assets/`).
-  - Handles local file access, security-scoped URLs, and asset path mapping.
+  - Handles local file access and asset path mapping. When the user selects a story via the system document picker, the loader uses security-scoped URLs (iOS sandbox bookmarks) to retain read access to the selected folder across app launches.
+  - **Asset resolution** is handled here: relative paths in `hero_image.src` and other asset references are resolved to absolute file URLs (or kept as remote URLs if already absolute). The loader produces a resolved `AssetManifest` mapping asset keys to URLs that views can load directly.
 - **StoryParser**
   - Parses YAML front matter into metadata, `sections`, and `media` entries.
-  - Parses MDX body into a sequence of `Section` and `MediaRef` blocks.
+  - Parses the MDX body into a sequence of `Section` and `MediaRef` blocks. We support a **subset of MDX**: standard Markdown plus `<Section>` and `<MediaRef>` components with attribute syntax. JSX expressions, imports, and arbitrary components are not supported.
+  - Resolves `MediaRef` references against the `media` array, embedding denormalized metadata into each block so renderers don't need a separate lookup step.
   - Produces a `StoryDocument` with normalized data and validation diagnostics.
+  - **Parser foundation**: Use Apple's `swift-markdown` (`swiftlang/swift-markdown`) for Markdown parsing and extend with custom block parsing for `<Section>` and `<MediaRef>` tags. Use `Yams` for YAML front matter.
 - **StoryDocumentStore**
   - Holds the current story, loading state, and validation warnings.
   - Exposes story data to SwiftUI via `@Observable` or `ObservableObject`.
@@ -69,16 +72,29 @@ The app is split into four primary layers:
 
 ## State Management
 - `StoryDocumentStore` manages loading states and validation warnings.
+  - **Loading states**: `idle`, `loading`, `loaded(StoryDocument)`, `failed(Error)`.
+  - Exposes `diagnostics: [ValidationDiagnostic]` for surfacing parser/loader warnings.
 - `PlaybackCoordinator` exposes `nowPlaying`, `queue`, and `isPlaying` via `@Published` or `@Observable`.
+  - **Playback error states**: `authorizationDenied`, `playbackFailed(Error)`, `networkUnavailable`.
+  - When authorization is denied, the coordinator surfaces a `needsAuthorization` flag so the UI can prompt the user.
 - Views read from environment and avoid direct MusicKit calls.
 
 ## Error Handling
 - Surface parser warnings in a non-blocking banner for dev builds.
 - If a `MediaRef` cannot resolve, show a placeholder card with a warning label.
-- Handle MusicKit authorization failures with a clear “Sign in to Apple Music” CTA.
+- Handle MusicKit authorization failures with a clear "Sign in to Apple Music" CTA.
+
+## Validation Diagnostics
+Parser and loader errors are captured as `ValidationDiagnostic` values with the following structure:
+- **severity**: `error` (blocks rendering) or `warning` (render proceeds with fallback).
+- **code**: Machine-readable identifier (e.g., `missing_required_field`, `unresolved_media_ref`, `invalid_yaml`).
+- **message**: Human-readable description.
+- **location**: Optional source location (line number, element ID) for debugging.
+
+`StoryDocumentStore` aggregates diagnostics and exposes them for dev-mode UI banners and logging.
 
 ## Accessibility & UX
-- Match the design principles in `doc-4` (Liquid Glass for controls, narrative-first layout).
+- Match the design principles in `doc-4 - iOS-story-renderer-design-principles` (Liquid Glass for controls, narrative-first layout).
 - Support Dynamic Type, Reduce Transparency, and VoiceOver semantics.
 - Keep inline media actions discoverable with clear labels and haptics.
 
@@ -89,6 +105,6 @@ The app is split into four primary layers:
 4. **Phase 4**: Story picker + local bundle ingestion.
 
 ## Decisions
-- Build an MDX parser in Swift (no precompiled JSON).
-- Hardcode MusicKit developer tokens for local development for now.
+- Build an MDX parser in Swift (no precompiled JSON). Support a **subset of MDX** (Markdown + `<Section>` and `<MediaRef>` components); the full MDX subset is defined in a separate doc.
+- Store MusicKit developer tokens in a local-only config file (e.g., `LocalSecrets.xcconfig`) that is excluded from version control via `.gitignore`. Do not hardcode tokens in source.
 - Offline caching for artwork/playback metadata is not required; add if easy during implementation.
