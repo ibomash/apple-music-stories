@@ -48,7 +48,7 @@ The app is split into four primary layers:
   - Expands into a full now-playing sheet.
 
 ## Data Flow
-1. User selects a story package (local or bundled).
+1. User selects a story package (local, bundled, or downloaded from a web URL).
 2. `StoryPackageLoader` loads `story.mdx` and resolves asset paths.
 3. `StoryParser` reads front matter + body and emits a `StoryDocument` plus validation notes.
 4. `StoryDocumentStore` publishes the model to `StoryRendererView`.
@@ -85,10 +85,10 @@ The app is split into four primary layers:
 ## Phased Delivery
 1. **Phase 1**: Story parsing + static rendering with sample data.
 2. **Phase 2**: Media cards + queueing playback stub.
-3. **Phase 3**: MusicKit integration + persistent playback bar.
+3. **Phase 3**: MusicKit integration + persistent playback bar (add lightweight artwork/metadata caching if easy).
 4. **Phase 4**: Story picker + local bundle ingestion.
 
-## Open Questions
-- Should we vendor an MDX parser in Swift or precompile story content to JSON?
-- How should we store developer tokens for MusicKit during local development?
-- Do we want offline caching for artwork and playback metadata?
+## Decisions
+- Build an MDX parser in Swift (no precompiled JSON).
+- Hardcode MusicKit developer tokens for local development for now.
+- Offline caching for artwork/playback metadata is not required; add if easy during implementation.
