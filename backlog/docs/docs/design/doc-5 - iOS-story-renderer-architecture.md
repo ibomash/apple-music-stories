@@ -93,6 +93,12 @@ Parser and loader errors are captured as `ValidationDiagnostic` values with the 
 
 `StoryDocumentStore` aggregates diagnostics and exposes them for dev-mode UI banners and logging.
 
+## Testing Strategy
+- **Parser unit tests**: Use MDX fixtures that cover valid syntax, unsupported constructs, and error reporting (e.g., missing `<Section>`, malformed attributes, unknown components).
+- **StoryPackageLoader integration tests**: Load sample story bundles with local assets to verify asset path resolution, security-scoped URL handling, and error conditions for missing `story.mdx`.
+- **UI snapshot tests**: Snapshot `StoryRendererView`, `SectionView`, and `MediaReferenceView` across lede/body layouts and missing metadata fallbacks.
+- **Playback coordinator mocking**: Replace MusicKit with a mock `PlaybackCoordinator` that returns deterministic queue and now-playing state to validate UI state updates without network/auth dependencies.
+
 ## Accessibility & UX
 - Match the design principles in `doc-4 - iOS-story-renderer-design-principles` (Liquid Glass for controls, narrative-first layout).
 - Support Dynamic Type, Reduce Transparency, and VoiceOver semantics.
