@@ -1,9 +1,10 @@
 ---
 id: task-20
 title: Define MDX subset specification for iOS renderer
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-17 17:00'
+updated_date: '2026-01-17 17:48'
 labels: []
 dependencies: []
 ---
@@ -21,3 +22,9 @@ Create a design doc (doc-6) that explicitly defines the MDX subset supported by 
 
 Related: doc-5 - iOS-story-renderer-architecture
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Documented MDX subset in doc-6 with supported Markdown, component schemas, unsupported syntax, examples, and diagnostic behavior.
+<!-- SECTION:NOTES:END -->
