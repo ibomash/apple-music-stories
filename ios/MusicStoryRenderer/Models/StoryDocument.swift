@@ -149,3 +149,67 @@ extension PlaybackIntent {
     static let full = PlaybackIntent(autoplay: false, usePreview: false, loop: false)
     static let autoplay = PlaybackIntent(autoplay: true, usePreview: false, loop: false)
 }
+
+struct PlaybackQueueEntry: Identifiable, Hashable {
+    let media: StoryMediaReference
+    let intent: PlaybackIntent
+
+    var id: String { media.key }
+}
+
+enum PlaybackQueueStatus: String, Hashable {
+    case idle
+    case queued
+    case playing
+
+    var label: String {
+        switch self {
+        case .idle:
+            return ""
+        case .queued:
+            return "Queued"
+        case .playing:
+            return "Now Playing"
+        }
+    }
+}
+
+struct PlaybackQueueState: Hashable {
+    private(set) var nowPlaying: PlaybackQueueEntry?
+    private(set) var upNext: [PlaybackQueueEntry]
+
+    init(nowPlaying: PlaybackQueueEntry? = nil, upNext: [PlaybackQueueEntry] = []) {
+        self.nowPlaying = nowPlaying
+        self.upNext = upNext
+    }
+
+    func status(for media: StoryMediaReference) -> PlaybackQueueStatus {
+        if nowPlaying?.media.key == media.key {
+            return .playing
+        }
+        if upNext.contains(where: { $0.media.key == media.key }) {
+            return .queued
+        }
+        return .idle
+    }
+
+    mutating func play(media: StoryMediaReference, intent: PlaybackIntent?) {
+        let entry = PlaybackQueueEntry(media: media, intent: resolvedIntent(intent))
+        nowPlaying = entry
+        upNext.removeAll { $0.media.key == media.key }
+    }
+
+    mutating func enqueue(media: StoryMediaReference, intent: PlaybackIntent?) {
+        if nowPlaying?.media.key == media.key {
+            return
+        }
+        if upNext.contains(where: { $0.media.key == media.key }) {
+            return
+        }
+        upNext.append(PlaybackQueueEntry(media: media, intent: resolvedIntent(intent)))
+    }
+
+    private func resolvedIntent(_ intent: PlaybackIntent?) -> PlaybackIntent {
+        intent ?? .preview
+    }
+}

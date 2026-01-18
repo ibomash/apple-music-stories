@@ -2,11 +2,11 @@ import SwiftUI
 
 struct StoryRendererView: View {
     let document: StoryDocument
-    let playbackController: PlaybackControlling
+    @StateObject private var playbackController: AppleMusicPlaybackController
 
-    init(document: StoryDocument, playbackController: PlaybackControlling = AppleMusicPlaybackController()) {
+    init(document: StoryDocument, playbackController: AppleMusicPlaybackController = AppleMusicPlaybackController()) {
         self.document = document
-        self.playbackController = playbackController
+        _playbackController = StateObject(wrappedValue: playbackController)
     }
 
     var body: some View {
@@ -100,7 +100,7 @@ struct StoryHeroImageView: View {
 struct StorySectionView: View {
     let section: StorySection
     let mediaLookup: [String: StoryMediaReference]
-    let playbackController: PlaybackControlling
+    let playbackController: AppleMusicPlaybackController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -125,7 +125,7 @@ struct StorySectionView: View {
 struct StoryBlockView: View {
     let block: StoryBlock
     let mediaLookup: [String: StoryMediaReference]
-    let playbackController: PlaybackControlling
+    let playbackController: AppleMusicPlaybackController
 
     var body: some View {
         switch block {
@@ -146,9 +146,21 @@ struct StoryBlockView: View {
 struct MediaReferenceView: View {
     let media: StoryMediaReference
     let intent: PlaybackIntent?
-    let playbackController: PlaybackControlling
+    let playbackController: AppleMusicPlaybackController
 
     var body: some View {
+        let status = playbackController.queueState.status(for: media)
+        let playLabel = status == .playing ? "Playing" : (intent?.autoplay == true ? "Play Now" : "Play")
+        let queueLabel: String
+        switch status {
+        case .idle:
+            queueLabel = "Queue"
+        case .queued:
+            queueLabel = "Queued"
+        case .playing:
+            queueLabel = "Playing"
+        }
+
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
                 MediaArtworkView(url: media.artworkURL)
@@ -163,15 +175,29 @@ struct MediaReferenceView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
+                MediaStatusBadge(status: status)
             }
-            Button {
-                playbackController.play(media: media, intent: intent)
-            } label: {
-                Text(intent?.autoplay == true ? "Play Now" : "Play")
-                    .font(.subheadline.bold())
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                Button {
+                    playbackController.play(media: media, intent: intent)
+                } label: {
+                    Text(playLabel)
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(status == .playing)
+
+                Button {
+                    playbackController.queue(media: media, intent: intent)
+                } label: {
+                    Text(queueLabel)
+                        .font(.subheadline.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(status != .idle)
             }
-            .buttonStyle(.borderedProminent)
         }
         .padding(16)
         .background(.ultraThinMaterial)
@@ -218,6 +244,24 @@ struct MediaArtworkView: View {
         }
         .frame(width: 88, height: 88)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct MediaStatusBadge: View {
+    let status: PlaybackQueueStatus
+
+    var body: some View {
+        if status == .idle {
+            EmptyView()
+        } else {
+            Text(status.label)
+                .font(.caption2.bold())
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(.thinMaterial)
+                .clipShape(Capsule())
+                .accessibilityLabel(status.label)
+        }
     }
 }
 

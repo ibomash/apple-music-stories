@@ -97,3 +97,68 @@ final class StoryParserTests: XCTestCase {
         """
     }
 }
+
+final class PlaybackQueueStateTests: XCTestCase {
+    func testQueueAddsUpNextEntry() {
+        var state = PlaybackQueueState()
+        let media = makeMedia(key: "trk-1")
+
+        state.enqueue(media: media, intent: .full)
+
+        XCTAssertEqual(state.upNext.count, 1)
+        XCTAssertEqual(state.status(for: media), .queued)
+    }
+
+    func testPlayUsesPreviewIntentByDefault() {
+        var state = PlaybackQueueState()
+        let media = makeMedia(key: "trk-2")
+
+        state.play(media: media, intent: nil)
+
+        XCTAssertEqual(state.nowPlaying?.intent, .preview)
+        XCTAssertEqual(state.status(for: media), .playing)
+    }
+
+    func testPlayRemovesFromUpNext() {
+        var state = PlaybackQueueState()
+        let media = makeMedia(key: "trk-3")
+
+        state.enqueue(media: media, intent: .preview)
+        state.play(media: media, intent: .full)
+
+        XCTAssertEqual(state.status(for: media), .playing)
+        XCTAssertTrue(state.upNext.isEmpty)
+    }
+
+    func testQueueIgnoresNowPlaying() {
+        var state = PlaybackQueueState()
+        let media = makeMedia(key: "trk-4")
+
+        state.play(media: media, intent: .preview)
+        state.enqueue(media: media, intent: .preview)
+
+        XCTAssertTrue(state.upNext.isEmpty)
+    }
+
+    func testQueueIgnoresDuplicateEntries() {
+        var state = PlaybackQueueState()
+        let media = makeMedia(key: "trk-5")
+
+        state.enqueue(media: media, intent: .full)
+        state.enqueue(media: media, intent: .preview)
+
+        XCTAssertEqual(state.upNext.count, 1)
+    }
+
+    private func makeMedia(key: String) -> StoryMediaReference {
+        StoryMediaReference(
+            key: key,
+            type: .track,
+            appleMusicId: "123",
+            title: "Song",
+            artist: "Artist",
+            artworkURL: nil,
+            durationMilliseconds: 200000
+        )
+    }
+}

@@ -1,15 +1,18 @@
 import Foundation
 
-protocol PlaybackControlling {
-    func play(media: StoryMediaReference, intent: PlaybackIntent?)
-    func queue(media: StoryMediaReference)
-}
-
 @MainActor
-final class AppleMusicPlaybackController: ObservableObject, PlaybackControlling {
+final class AppleMusicPlaybackController: ObservableObject {
+    @Published private(set) var queueState = PlaybackQueueState()
+
     func play(media: StoryMediaReference, intent: PlaybackIntent?) {
+        var state = queueState
+        state.play(media: media, intent: intent)
+        queueState = state
     }
 
-    func queue(media: StoryMediaReference) {
+    func queue(media: StoryMediaReference, intent: PlaybackIntent?) {
+        var state = queueState
+        state.enqueue(media: media, intent: intent)
+        queueState = state
     }
 }
