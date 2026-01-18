@@ -108,8 +108,12 @@ struct StorySectionView: View {
                 Text(title)
                     .font(.title2.bold())
             }
-            if let leadMediaKey = section.leadMediaKey, let media = mediaLookup[leadMediaKey] {
-                MediaReferenceView(media: media, intent: PlaybackIntent(autoplay: false, usePreview: true, loop: false), playbackController: playbackController)
+            if let leadMediaKey = section.leadMediaKey {
+                if let media = mediaLookup[leadMediaKey] {
+                    MediaReferenceView(media: media, intent: .preview, playbackController: playbackController)
+                } else {
+                    MissingMediaReferenceView(referenceKey: leadMediaKey)
+                }
             }
             ForEach(section.blocks) { block in
                 StoryBlockView(block: block, mediaLookup: mediaLookup, playbackController: playbackController)
@@ -132,6 +136,8 @@ struct StoryBlockView: View {
         case let .media(_, referenceKey, intent):
             if let media = mediaLookup[referenceKey] {
                 MediaReferenceView(media: media, intent: intent, playbackController: playbackController)
+            } else {
+                MissingMediaReferenceView(referenceKey: referenceKey)
             }
         }
     }
@@ -169,6 +175,24 @@ struct MediaReferenceView: View {
         }
         .padding(16)
         .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct MissingMediaReferenceView: View {
+    let referenceKey: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Missing media reference", systemImage: "exclamationmark.triangle")
+                .font(.headline)
+            Text(referenceKey)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.thinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

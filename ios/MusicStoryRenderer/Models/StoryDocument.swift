@@ -121,10 +121,31 @@ enum StoryMediaType: String, Hashable {
             return "Music Video"
         }
     }
+
+    init?(storageValue: String) {
+        switch storageValue.lowercased() {
+        case "track":
+            self = .track
+        case "album":
+            self = .album
+        case "playlist":
+            self = .playlist
+        case "music-video", "musicvideo", "music_video":
+            self = .musicVideo
+        default:
+            return nil
+        }
+    }
 }
 
 struct PlaybackIntent: Hashable {
     let autoplay: Bool
     let usePreview: Bool
     let loop: Bool
+}
+
+extension PlaybackIntent {
+    static let preview = PlaybackIntent(autoplay: false, usePreview: true, loop: false)
+    static let full = PlaybackIntent(autoplay: false, usePreview: false, loop: false)
+    static let autoplay = PlaybackIntent(autoplay: true, usePreview: false, loop: false)
 }
