@@ -16,14 +16,21 @@ final class StoryDocumentStore: ObservableObject {
     private let loader: StoryPackageLoading
     private let parser: StoryParser
     private var hasLoadedSample = false
+    private var activeSecurityScopedURL: URL?
+    private var hasSecurityScopedAccess = false
 
     init(loader: StoryPackageLoading = StoryPackageLoader(), parser: StoryParser = StoryParser()) {
         self.loader = loader
         self.parser = parser
     }
 
+    deinit {
+        clearSecurityScopedAccess()
+    }
+
     func loadStory(from url: URL) {
         state = .loading
+        startSecurityScopedAccess(for: url)
         do {
             let package = try loader.loadStory(at: url)
             let parsed = parser.parse(package: package)
@@ -31,11 +38,10 @@ final class StoryDocumentStore: ObservableObject {
             if let document = parsed.document {
                 state = .loaded(document)
             } else {
-                state = .failed("Story parsing failed.")
+                handleLoadError("Story parsing failed.")
             }
         } catch {
-            diagnostics = []
-            state = .failed(error.localizedDescription)
+            handleLoadError(error.localizedDescription)
         }
     }
 
@@ -55,5 +61,37 @@ final class StoryDocumentStore: ObservableObject {
             ]
             state = .loaded(.sample())
         }
+    }
+
+    func handleLoadError(_ message: String) {
+        diagnostics = []
+        state = .failed(message)
+        clearSecurityScopedAccess()
+    }
+
+    private func startSecurityScopedAccess(for url: URL) {
+        #if os(iOS) || os(macOS)
+        guard url.isFileURL else {
+            clearSecurityScopedAccess()
+            return
+        }
+        if activeSecurityScopedURL != url {
+            clearSecurityScopedAccess()
+        }
+        if hasSecurityScopedAccess == false {
+            hasSecurityScopedAccess = url.startAccessingSecurityScopedResource()
+        }
+        activeSecurityScopedURL = url
+        #endif
+    }
+
+    private func clearSecurityScopedAccess() {
+        #if os(iOS) || os(macOS)
+        if hasSecurityScopedAccess, let activeURL = activeSecurityScopedURL {
+            activeURL.stopAccessingSecurityScopedResource()
+        }
+        hasSecurityScopedAccess = false
+        activeSecurityScopedURL = nil
+        #endif
     }
 }

@@ -29,20 +29,6 @@ enum StoryPackageLoaderError: LocalizedError {
 
 struct StoryPackageLoader: StoryPackageLoading {
     func loadStory(at url: URL) throws -> StoryPackage {
-        var securityScopedAccess = false
-        #if os(iOS) || os(macOS)
-        if url.isFileURL {
-            securityScopedAccess = url.startAccessingSecurityScopedResource()
-        }
-        #endif
-        defer {
-            #if os(iOS) || os(macOS)
-            if securityScopedAccess {
-                url.stopAccessingSecurityScopedResource()
-            }
-            #endif
-        }
-
         let storyURL = try resolveStoryURL(from: url)
         guard let storyText = try? String(contentsOf: storyURL, encoding: .utf8) else {
             throw StoryPackageLoaderError.unreadableStory(storyURL)

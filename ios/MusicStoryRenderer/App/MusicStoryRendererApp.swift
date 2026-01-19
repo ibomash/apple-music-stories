@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct MusicStoryRendererApp: App {
@@ -13,22 +14,35 @@ struct StoryRootView: View {
     @StateObject private var store = StoryDocumentStore()
     @StateObject private var playbackController = AppleMusicPlaybackController()
     @State private var isShowingNowPlaying = false
+    @State private var isShowingStoryPicker = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                switch store.state {
-                case .idle, .loading:
-                    ProgressView("Loading Story…")
-                case let .loaded(document):
-                    StoryRendererView(document: document, playbackController: playbackController)
-                        .padding(.bottom, playbackController.shouldShowPlaybackBar ? 92 : 0)
-                case let .failed(message):
-                    ContentUnavailableView(
-                        "Unable to Load Story",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(message)
-                    )
+            NavigationStack {
+                Group {
+                    switch store.state {
+                    case .idle, .loading:
+                        ProgressView("Loading Story…")
+                    case let .loaded(document):
+                        StoryRendererView(document: document, playbackController: playbackController)
+                            .padding(.bottom, playbackController.shouldShowPlaybackBar ? 92 : 0)
+                    case let .failed(message):
+                        ContentUnavailableView(
+                            "Unable to Load Story",
+                            systemImage: "exclamationmark.triangle",
+                            description: Text(message)
+                        )
+                    }
+                }
+                .navigationTitle("Music Stories")
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            isShowingStoryPicker = true
+                        } label: {
+                            Label("Open Story", systemImage: "folder")
+                        }
+                    }
                 }
             }
 
@@ -41,6 +55,20 @@ struct StoryRootView: View {
         }
         .sheet(isPresented: $isShowingNowPlaying) {
             NowPlayingSheetView(controller: playbackController)
+        }
+        .fileImporter(
+            isPresented: $isShowingStoryPicker,
+            allowedContentTypes: [.folder, UTType(filenameExtension: "mdx")].compactMap { $0 },
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case let .success(urls):
+                if let url = urls.first {
+                    store.loadStory(from: url)
+                }
+            case let .failure(error):
+                store.handleLoadError(error.localizedDescription)
+            }
         }
         .task {
             store.loadBundledSampleIfAvailable()

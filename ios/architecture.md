@@ -7,7 +7,7 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 
 ### Story ingestion
 - `StoryPackageLoader` loads `story.mdx` and resolves `assets/` paths into absolute URLs.
-- Local bundles are loaded from the app bundle; Phase 4 adds a document picker flow.
+- Story selection uses a toolbar picker with `fileImporter` to open bundled or on-device story packages; the store keeps security-scoped access active while a picked story is rendered.
 - Errors from loading are surfaced as `StoryLoadState.failed`.
 
 ### Story parsing + models
