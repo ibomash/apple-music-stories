@@ -58,7 +58,11 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 - Swift tooling is run from `ios/MusicStoryRenderer` with swiftenv initialized (see `ios/AGENTS.md`).
 - Tests: `swift test`.
 
+## Entitlements + Usage Description
+- Enable the MusicKit capability for the App ID in the Apple Developer portal (Identifiers -> App Services -> MusicKit), then refresh provisioning profiles.
+- In Xcode, add the MusicKit capability under Signing & Capabilities so the entitlements are embedded in the app.
+- Add `NSAppleMusicUsageDescription` to the app Info.plist with user-facing text (example: "Allow Apple Music playback in stories.").
+
 ## Pending + Planned
-- MusicKit entitlement + `NSAppleMusicUsageDescription` guidance (TASK-31).
 - Story picker + local bundle ingestion (Phase 4, TASK-26).
 - Snapshot tests for UI components and diagnostic banners (not yet started).
