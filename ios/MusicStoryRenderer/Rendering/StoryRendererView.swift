@@ -2,12 +2,7 @@ import SwiftUI
 
 struct StoryRendererView: View {
     let document: StoryDocument
-    @StateObject private var playbackController: AppleMusicPlaybackController
-
-    init(document: StoryDocument, playbackController: AppleMusicPlaybackController = AppleMusicPlaybackController()) {
-        self.document = document
-        _playbackController = StateObject(wrappedValue: playbackController)
-    }
+    @ObservedObject var playbackController: AppleMusicPlaybackController
 
     var body: some View {
         ScrollView {
@@ -274,5 +269,5 @@ extension DateFormatter {
 }
 
 #Preview {
-    StoryRendererView(document: .sample())
+    StoryRendererView(document: .sample(), playbackController: AppleMusicPlaybackController())
 }

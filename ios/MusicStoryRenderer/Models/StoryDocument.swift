@@ -150,6 +150,96 @@ extension PlaybackIntent {
     static let autoplay = PlaybackIntent(autoplay: true, usePreview: false, loop: false)
 }
 
+enum PlaybackAuthorizationStatus: String, Hashable {
+    case notDetermined
+    case denied
+    case restricted
+    case authorized
+
+    var allowsPlayback: Bool {
+        self == .authorized
+    }
+
+    var requiresAuthorization: Bool {
+        self != .authorized
+    }
+
+    var actionTitle: String {
+        switch self {
+        case .authorized:
+            return "Apple Music Ready"
+        case .restricted:
+            return "Apple Music Restricted"
+        case .denied, .notDetermined:
+            return "Sign in to Apple Music"
+        }
+    }
+}
+
+enum PlaybackState: String, Hashable {
+    case stopped
+    case playing
+    case paused
+    case loading
+
+    var actionSymbolName: String {
+        switch self {
+        case .playing, .loading:
+            return "pause.fill"
+        case .stopped, .paused:
+            return "play.fill"
+        }
+    }
+
+    var actionLabel: String {
+        switch self {
+        case .playing:
+            return "Pause"
+        case .loading:
+            return "Loading"
+        case .stopped, .paused:
+            return "Play"
+        }
+    }
+
+    var statusLabel: String {
+        switch self {
+        case .playing:
+            return "Playing"
+        case .paused:
+            return "Paused"
+        case .loading:
+            return "Loading"
+        case .stopped:
+            return "Stopped"
+        }
+    }
+}
+
+struct PlaybackNowPlayingMetadata: Hashable {
+    let title: String
+    let subtitle: String
+    let artworkURL: URL?
+    let appleMusicId: String?
+    let type: StoryMediaType?
+
+    init(title: String, subtitle: String, artworkURL: URL?, appleMusicId: String?, type: StoryMediaType?) {
+        self.title = title
+        self.subtitle = subtitle
+        self.artworkURL = artworkURL
+        self.appleMusicId = appleMusicId
+        self.type = type
+    }
+
+    init(media: StoryMediaReference) {
+        self.title = media.title
+        self.subtitle = media.artist
+        self.artworkURL = media.artworkURL
+        self.appleMusicId = media.appleMusicId
+        self.type = media.type
+    }
+}
+
 struct PlaybackQueueEntry: Identifiable, Hashable {
     let media: StoryMediaReference
     let intent: PlaybackIntent

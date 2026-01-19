@@ -1,3 +1,6 @@
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# Local secrets
+LocalSecrets.xcconfig

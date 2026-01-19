@@ -162,3 +162,42 @@ final class PlaybackQueueStateTests: XCTestCase {
         )
     }
 }
+
+final class PlaybackAuthorizationStatusTests: XCTestCase {
+    func testAuthorizationAllowsPlaybackOnlyWhenAuthorized() {
+        XCTAssertFalse(PlaybackAuthorizationStatus.notDetermined.allowsPlayback)
+        XCTAssertFalse(PlaybackAuthorizationStatus.denied.allowsPlayback)
+        XCTAssertFalse(PlaybackAuthorizationStatus.restricted.allowsPlayback)
+        XCTAssertTrue(PlaybackAuthorizationStatus.authorized.allowsPlayback)
+    }
+
+    func testAuthorizationActionTitles() {
+        XCTAssertEqual(PlaybackAuthorizationStatus.authorized.actionTitle, "Apple Music Ready")
+        XCTAssertEqual(PlaybackAuthorizationStatus.denied.actionTitle, "Sign in to Apple Music")
+        XCTAssertEqual(PlaybackAuthorizationStatus.notDetermined.actionTitle, "Sign in to Apple Music")
+        XCTAssertEqual(PlaybackAuthorizationStatus.restricted.actionTitle, "Apple Music Restricted")
+    }
+}
+
+final class PlaybackNowPlayingMetadataTests: XCTestCase {
+    func testMetadataMirrorsStoryMedia() {
+        let artworkURL = URL(string: "https://example.com/art.jpg")
+        let media = StoryMediaReference(
+            key: "trk-1",
+            type: .track,
+            appleMusicId: "123",
+            title: "Song",
+            artist: "Artist",
+            artworkURL: artworkURL,
+            durationMilliseconds: 200000
+        )
+
+        let metadata = PlaybackNowPlayingMetadata(media: media)
+
+        XCTAssertEqual(metadata.title, "Song")
+        XCTAssertEqual(metadata.subtitle, "Artist")
+        XCTAssertEqual(metadata.artworkURL, artworkURL)
+        XCTAssertEqual(metadata.appleMusicId, "123")
+        XCTAssertEqual(metadata.type, .track)
+    }
+}
