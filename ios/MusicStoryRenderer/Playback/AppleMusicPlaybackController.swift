@@ -1,6 +1,6 @@
 import Combine
 import Foundation
-import MusicKit
+@preconcurrency import MusicKit
 
 @MainActor
 final class AppleMusicPlaybackController: ObservableObject {
@@ -27,6 +27,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         }
     }
 
+    @MainActor
     deinit {
         playbackStatusObserver?.cancel()
         queueObserver?.cancel()
@@ -60,7 +61,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         }
 
         if playbackEnabled {
-            Task {
+            Task { @MainActor in
                 await startPlayback(for: media, intent: resolvedIntent)
             }
         }
@@ -89,7 +90,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             pausePlayback()
         case .paused, .stopped:
             if playbackEnabled {
-                Task {
+                Task { @MainActor in
                     await resumePlayback()
                 }
             }
@@ -108,7 +109,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             return
         }
         isRequestingAuthorization = true
-        Task {
+        Task { @MainActor in
             let status = await MusicAuthorization.request()
             updateAuthorizationStatus(status)
             isRequestingAuthorization = false
@@ -127,7 +128,7 @@ final class AppleMusicPlaybackController: ObservableObject {
                 switch pendingAction {
                 case let .play(entry):
                     if playbackEnabled {
-                        Task {
+                        Task { @MainActor in
                             await startPlayback(for: entry.media, intent: entry.intent)
                         }
                     }
@@ -202,7 +203,7 @@ final class AppleMusicPlaybackController: ObservableObject {
                 return
             }
             Task { @MainActor in
-                let metadata = await self.makeMetadata(from: self.player.state)
+                let metadata = self.makeMetadata()
                 if metadata != self.nowPlayingMetadata {
                     self.nowPlayingMetadata = metadata
                 }
@@ -225,78 +226,47 @@ final class AppleMusicPlaybackController: ObservableObject {
         }
     }
 
-    private func makeMetadata(from state: MusicPlayer.State) async -> PlaybackNowPlayingMetadata? {
-        if let entry = state.queue.currentEntry {
-            let item = entry.item
-            switch item {
-            case let .song(song):
-                return PlaybackNowPlayingMetadata(
-                    title: song.title,
-                    subtitle: song.artistName,
-                    artworkURL: song.artwork?.url(width: 320, height: 320),
-                    appleMusicId: song.id.rawValue,
-                    type: .track
-                )
-            case let .album(album):
-                return PlaybackNowPlayingMetadata(
-                    title: album.title,
-                    subtitle: album.artistName,
-                    artworkURL: album.artwork?.url(width: 320, height: 320),
-                    appleMusicId: album.id.rawValue,
-                    type: .album
-                )
-            case let .playlist(playlist):
-                return PlaybackNowPlayingMetadata(
-                    title: playlist.name,
-                    subtitle: playlist.curatorName ?? "Playlist",
-                    artworkURL: playlist.artwork?.url(width: 320, height: 320),
-                    appleMusicId: playlist.id.rawValue,
-                    type: .playlist
-                )
-            case let .musicVideo(video):
-                return PlaybackNowPlayingMetadata(
-                    title: video.title,
-                    subtitle: video.artistName,
-                    artworkURL: video.artwork?.url(width: 320, height: 320),
-                    appleMusicId: video.id.rawValue,
-                    type: .musicVideo
-                )
-            @unknown default:
-                return nil
-            }
-        }
-        if let nowPlayingItem = state.nowPlayingItem {
-            return PlaybackNowPlayingMetadata(
-                title: nowPlayingItem.title,
-                subtitle: nowPlayingItem.artistName,
-                artworkURL: nowPlayingItem.artwork?.url(width: 320, height: 320),
-                appleMusicId: nowPlayingItem.id.rawValue,
-                type: nil
-            )
-        }
-        return displayEntry.map { PlaybackNowPlayingMetadata(media: $0.media) }
+    private func makeMetadata() -> PlaybackNowPlayingMetadata? {
+        displayEntry.map { PlaybackNowPlayingMetadata(media: $0.media) }
     }
 
     private func makeQueue(for media: StoryMediaReference) async throws -> MusicPlayer.Queue {
         let identifier = MusicItemID(media.appleMusicId)
         switch media.type {
         case .track:
-            let song = try await fetchItem(matching: identifier, as: Song.self)
+            let song = try await fetchSong(matching: identifier)
             return MusicPlayer.Queue(for: [song])
         case .album:
-            let album = try await fetchItem(matching: identifier, as: Album.self)
+            let album = try await fetchAlbum(matching: identifier)
             return MusicPlayer.Queue(for: [album])
         case .playlist:
-            let playlist = try await fetchItem(matching: identifier, as: Playlist.self)
+            let playlist = try await fetchPlaylist(matching: identifier)
             return MusicPlayer.Queue(for: [playlist])
         case .musicVideo:
-            let video = try await fetchItem(matching: identifier, as: MusicVideo.self)
-            return MusicPlayer.Queue(for: [video])
+            throw PlaybackError.unsupportedMedia
         }
     }
 
-    private func fetchItem<Item: MusicItem>(matching identifier: MusicItemID, as _: Item.Type) async throws -> Item {
-        let request = MusicCatalogResourceRequest<Item>(matching: \Item.id, equalTo: identifier)
+    private func fetchSong(matching identifier: MusicItemID) async throws -> Song {
+        let request = MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: identifier)
+        let response = try await request.response()
+        guard let item = response.items.first else {
+            throw PlaybackError.missingCatalogItem
+        }
+        return item
+    }
+
+    private func fetchAlbum(matching identifier: MusicItemID) async throws -> Album {
+        let request = MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: identifier)
+        let response = try await request.response()
+        guard let item = response.items.first else {
+            throw PlaybackError.missingCatalogItem
+        }
+        return item
+    }
+
+    private func fetchPlaylist(matching identifier: MusicItemID) async throws -> Playlist {
+        let request = MusicCatalogResourceRequest<Playlist>(matching: \.id, equalTo: identifier)
         let response = try await request.response()
         guard let item = response.items.first else {
             throw PlaybackError.missingCatalogItem
@@ -310,11 +280,14 @@ final class AppleMusicPlaybackController: ObservableObject {
 
     private enum PlaybackError: LocalizedError {
         case missingCatalogItem
+        case unsupportedMedia
 
         var errorDescription: String? {
             switch self {
             case .missingCatalogItem:
                 return "Unable to load the Apple Music item for playback."
+            case .unsupportedMedia:
+                return "Music video playback is not supported yet."
             }
         }
     }

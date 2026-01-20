@@ -26,7 +26,7 @@ struct StoryHeaderView: View {
     let document: StoryDocument
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 16) {
             StoryHeroImageView(heroImage: document.heroImage)
             VStack(alignment: .leading, spacing: 8) {
                 Text(document.title)
@@ -98,7 +98,7 @@ struct StorySectionView: View {
     let playbackController: AppleMusicPlaybackController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 16) {
             if let title = section.title {
                 Text(title)
                     .font(.title2.bold())
@@ -156,7 +156,7 @@ struct MediaReferenceView: View {
             queueLabel = "Playing"
         }
 
-        VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
                 MediaArtworkView(url: media.artworkURL)
                 VStack(alignment: .leading, spacing: 6) {

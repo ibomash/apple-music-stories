@@ -1,9 +1,10 @@
 ---
 id: TASK-13.1
 title: 'Phase 1: XcodeGen project setup'
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 15:23'
+updated_date: '2026-01-20 16:19'
 labels:
   - macOS
 dependencies: []
@@ -59,10 +60,18 @@ Using XcodeGen allows the project to be regenerated from a spec file, avoiding m
 6. **Verify generation**: Run `xcodegen generate` and confirm the project opens in Xcode without errors.
 
 ## Acceptance Criteria
-
-- [ ] `project.yml` exists and is valid
-- [ ] `xcodegen generate` produces a working `.xcodeproj`
-- [ ] MusicKit entitlement is configured
-- [ ] Info.plist has usage description
-- [ ] Generated project is gitignored
+<!-- AC:BEGIN -->
+- [ ] #1 `project.yml` exists and is valid
+- [ ] #2 `xcodegen generate` produces a working `.xcodeproj`
+- [ ] #3 MusicKit entitlement is configured
+- [ ] #4 Info.plist has usage description
+- [ ] #5 Generated project is gitignored
 <!-- SECTION:DESCRIPTION:END -->
+
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Installed XcodeGen, added project.yml, Info.plist, and MusicKit entitlements, updated .gitignore, and verified xcodegen generate creates MusicStoryRenderer.xcodeproj.
+<!-- SECTION:NOTES:END -->

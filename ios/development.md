@@ -37,7 +37,18 @@ ios/MusicStoryRenderer/
      build
    ```
 
-4. **Agent builds**: Use XcodeBuildMCP tools (`build_sim`, `test_sim`, `build_run_sim`) after setting session defaults for the project and scheme.
+4. **Agent builds**: Use XcodeBuildMCP tools after generating the project and setting session defaults. Example flow:
+   ```
+   XcodeBuildMCP_discover_projs workspaceRoot="/Users/ibomash/repos-ibomash/apple-music-stories/ios"
+   XcodeBuildMCP_session-set-defaults projectPath="/Users/ibomash/repos-ibomash/apple-music-stories/ios/MusicStoryRenderer/MusicStoryRenderer.xcodeproj" scheme="MusicStoryRenderer" useLatestOS=true
+   XcodeBuildMCP_list_sims
+   XcodeBuildMCP_session-set-defaults simulatorId="SIMULATOR_UDID"
+   XcodeBuildMCP_build_sim
+   XcodeBuildMCP_test_sim
+   XcodeBuildMCP_get_sim_app_path platform="iOS Simulator"
+   XcodeBuildMCP_get_app_bundle_id appPath="PATH_FROM_GET_SIM_APP_PATH"
+   XcodeBuildMCP_launch_app_sim bundleId="BUNDLE_ID_FROM_GET_APP_BUNDLE_ID"
+   ```
 
 ### Key Files
 

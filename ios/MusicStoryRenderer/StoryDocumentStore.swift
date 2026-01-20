@@ -24,6 +24,7 @@ final class StoryDocumentStore: ObservableObject {
         self.parser = parser
     }
 
+    @MainActor
     deinit {
         clearSecurityScopedAccess()
     }

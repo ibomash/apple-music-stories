@@ -1,0 +1,39 @@
+name: MusicStoryRenderer
+
+options:
+  bundleIdPrefix: net.bomash.illya
+
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+
+targets:
+  MusicStoryRenderer:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: App
+      - path: Models
+      - path: Playback
+      - path: Rendering
+      - StoryParser.swift
+      - StoryPackageLoader.swift
+      - StoryDocumentStore.swift
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        INFOPLIST_FILE: Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: net.bomash.illya.MusicStories
+
+  MusicStoryRendererCoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Tests/MusicStoryRendererCoreTests
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+    dependencies:
+      - target: MusicStoryRenderer
