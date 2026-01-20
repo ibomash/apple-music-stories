@@ -4,3 +4,6 @@
 
 # Local secrets
 LocalSecrets.xcconfig
+
+# macOS metadata
+.DS_Store
