@@ -1,9 +1,10 @@
 ---
 id: TASK-13.2
 title: 'Phase 2: iOS simulator setup'
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 15:23'
+updated_date: '2026-01-20 22:34'
 labels:
   - macOS
 dependencies: []
@@ -57,8 +58,16 @@ Agents need a known simulator name to use in build commands and MCP session defa
 - Alternative: Use `xcodebuild -downloadAllPlatforms` to get all platform simulators.
 
 ## Acceptance Criteria
-
-- [ ] iOS simulator runtime is installed
-- [ ] "iPhone 16" simulator device exists and boots
-- [ ] Simulator name is documented for agent use
+<!-- AC:BEGIN -->
+- [ ] #1 iOS simulator runtime is installed
+- [ ] #2 "iPhone 16" simulator device exists and boots
+- [ ] #3 Simulator name is documented for agent use
 <!-- SECTION:DESCRIPTION:END -->
+
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Verified iOS 26.2 runtime already installed; created iPhone 16 simulator (AFDD7692-F5C7-4BDC-90A4-F277AAFEC57D) and booted it. Documented default simulator/runtime in ios/AGENTS.md.
+<!-- SECTION:NOTES:END -->
