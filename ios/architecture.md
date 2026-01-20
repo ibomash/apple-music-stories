@@ -55,8 +55,23 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 - `PlaybackAuthorizationStatusTests` and `PlaybackNowPlayingMetadataTests` cover playback state models.
 
 ## Build + Run
-- Swift tooling is run from `ios/MusicStoryRenderer` with swiftenv initialized (see `ios/AGENTS.md`).
-- Tests: `swift test`.
+
+### Prerequisites
+- macOS with Xcode that supports Swift 6.2 for the app build.
+- Apple Developer Program membership and an App ID with the MusicKit capability enabled.
+- Apple Music subscription for on-device playback (recommended).
+
+### Core package (Linux/macOS)
+- Initialize swiftenv (see `ios/AGENTS.md`).
+- From `ios/MusicStoryRenderer`, run `swift test`.
+
+### App build (macOS + Xcode)
+- Create or open a local Xcode project in `ios/MusicStoryRenderer` (the repo does not include an `.xcodeproj` yet).
+- Add the sources under `App`, `Models`, `Rendering`, `Playback`, plus `StoryDocumentStore.swift`, `StoryPackageLoader.swift`, and `StoryParser.swift` to the app target.
+- Use `App/MusicStoryRendererApp.swift` as the SwiftUI entry point.
+- Add the MusicKit capability and `NSAppleMusicUsageDescription` (see Entitlements + Usage Description).
+- Optional: bundle `examples/sample-story/story.mdx` as `sample-story.mdx` so the initial load succeeds.
+- Build and run on a simulator or device. For device runs, ensure signing/provisioning is set and MusicKit is enabled for the App ID.
 
 ## Entitlements + Usage Description
 - Enable the MusicKit capability for the App ID in the Apple Developer portal (Identifiers -> App Services -> MusicKit), then refresh provisioning profiles.

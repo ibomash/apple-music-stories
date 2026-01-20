@@ -4,7 +4,9 @@ title: Add iOS UI snapshot + diagnostics banner tests
 status: Later
 assignee: []
 created_date: '2026-01-19 21:38'
-labels: []
+updated_date: '2026-01-20 02:57'
+labels:
+  - macOS
 dependencies: []
 ---
 
