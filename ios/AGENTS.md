@@ -1,6 +1,6 @@
-# iOS agent instructions
+# iOS Agent Instructions
 
-Read `ios/architecture.md` for a full overview of the app architecture and playback integration. Keep `ios/architecture.md` updated as the iOS app evolves. Also check `ios/status.md` for current phase status and keep it updated as tasks move.
+Read `ios/architecture.md` for a full overview of the app architecture and playback integration. Keep `ios/architecture.md` and `ios/status.md` updated as the iOS app evolves.
 
 ## Swift toolchain setup
 
@@ -11,7 +11,16 @@ export PATH="$HOME/.swiftenv/bin:$PATH"
 eval "$(swiftenv init -)"
 ```
 
-After this, run Swift commands (e.g., `swift test`) from `ios/MusicStoryRenderer`.
+After this, run Swift commands (for example `swift test`) from `ios/MusicStoryRenderer`.
+
+## Project generation
+
+After adding or removing source files, regenerate the Xcode project:
+
+```bash
+cd ios/MusicStoryRenderer
+xcodegen generate
+```
 
 ## Default iOS simulator
 
@@ -22,17 +31,15 @@ iPhone 16 (com.apple.CoreSimulator.SimDeviceType.iPhone-16)
 Runtime: com.apple.CoreSimulator.SimRuntime.iOS-26-2
 ```
 
-## Build and test commands
+## Build commands
 
 Run these from `ios/MusicStoryRenderer`:
 
-```bash
-xcodegen generate
-xcodebuild -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer -destination "platform=iOS Simulator,name=iPhone 16" build
-xcodebuild test -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer -destination "platform=iOS Simulator,name=iPhone 16"
-swift test
-xcodebuild clean -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer
-```
+| Command | Platform | Purpose |
+| --- | --- | --- |
+| `swift test` | Any | Core library tests |
+| `xcodebuild -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer -destination "platform=iOS Simulator,name=iPhone 16" build` | macOS | Full app build |
+| `xcodebuild test -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer -destination "platform=iOS Simulator,name=iPhone 16"` | macOS | Run all tests |
 
 ## Linting and formatting
 
@@ -42,12 +49,12 @@ Install tooling if needed:
 brew install swiftlint swiftformat
 ```
 
-Run from the repo root:
+Run from `ios/MusicStoryRenderer`:
 
 ```bash
-swiftlint lint --config ios/MusicStoryRenderer/.swiftlint.yml ios/MusicStoryRenderer
-swiftformat --lint ios/MusicStoryRenderer
-swiftformat ios/MusicStoryRenderer
+swiftlint lint --config .swiftlint.yml
+swiftformat --lint .
+swiftformat .
 ```
 
 Helper script from the repo root:
@@ -75,5 +82,34 @@ Common tools:
 - `build_sim` - Build for simulator
 - `test_sim` - Run tests
 - `build_run_sim` - Build and launch app
+- `get_sim_app_path` - Fetch simulator app bundle path
+- `get_app_bundle_id` - Resolve bundle identifier
+- `launch_app_sim` - Launch the app
 - `screenshot` - Capture simulator screen
 - `describe_ui` - Get view hierarchy for automation
+
+Example build-fix loop:
+
+```bash
+XcodeBuildMCP_discover_projs workspaceRoot="/Users/ibomash/repos-ibomash/apple-music-stories/ios"
+XcodeBuildMCP_session-set-defaults projectPath="/Users/ibomash/repos-ibomash/apple-music-stories/ios/MusicStoryRenderer/MusicStoryRenderer.xcodeproj" scheme="MusicStoryRenderer" simulatorName="iPhone 16" useLatestOS=true
+XcodeBuildMCP_build_sim
+XcodeBuildMCP_test_sim
+XcodeBuildMCP_get_sim_app_path platform="iOS Simulator"
+XcodeBuildMCP_get_app_bundle_id appPath="PATH_FROM_GET_SIM_APP_PATH"
+XcodeBuildMCP_launch_app_sim bundleId="BUNDLE_ID_FROM_GET_APP_BUNDLE_ID"
+```
+
+## Safe command allowlist
+
+- `xcodebuild`, `xcodegen`, `xcrun simctl`
+- `swift build`, `swift test`
+- `swiftlint`, `swiftformat`
+- `git status`, `git diff`, `git log`
+
+## Coding conventions
+
+- No force unwraps (`!`).
+- MVVM architecture with views separate from view models.
+- Prefer async/await for async code.
+- Use SwiftUI for all new views.

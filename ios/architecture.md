@@ -66,8 +66,8 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 - From `ios/MusicStoryRenderer`, run `swift test`.
 
 ### App build (macOS + Xcode)
-- Create or open a local Xcode project in `ios/MusicStoryRenderer` (the repo does not include an `.xcodeproj` yet).
-- Add the sources under `App`, `Models`, `Rendering`, `Playback`, plus `StoryDocumentStore.swift`, `StoryPackageLoader.swift`, and `StoryParser.swift` to the app target.
+- Generate the project after changing sources: `cd ios/MusicStoryRenderer && xcodegen generate`.
+- Build/test with `xcodebuild` (see `ios/AGENTS.md` for exact commands).
 - Use `App/MusicStoryRendererApp.swift` as the SwiftUI entry point.
 - Add the MusicKit capability and `NSAppleMusicUsageDescription` (see Entitlements + Usage Description).
 - Optional: bundle `examples/sample-story/story.mdx` as `sample-story.mdx` so the initial load succeeds.

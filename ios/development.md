@@ -35,6 +35,9 @@ ios/MusicStoryRenderer/
      -scheme MusicStoryRenderer \
      -destination "platform=iOS Simulator,name=iPhone 16" \
      build
+   xcodebuild test -project MusicStoryRenderer.xcodeproj \
+     -scheme MusicStoryRenderer \
+     -destination "platform=iOS Simulator,name=iPhone 16"
    ```
 
 4. **Agent builds**: Use XcodeBuildMCP tools after generating the project and setting session defaults. Example flow:

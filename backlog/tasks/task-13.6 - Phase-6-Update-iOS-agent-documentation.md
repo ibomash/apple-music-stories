@@ -1,9 +1,10 @@
 ---
 id: TASK-13.6
 title: 'Phase 6: Update iOS agent documentation'
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 15:24'
+updated_date: '2026-01-21 02:23'
 labels: []
 dependencies: []
 parent_task_id: TASK-13
@@ -124,10 +125,18 @@ Set session defaults before using MCP tools:
 ```
 
 ## Acceptance Criteria
-
-- [ ] `ios/AGENTS.md` has all build/test/lint commands
-- [ ] XcodeBuildMCP usage is documented
-- [ ] Coding conventions are specified
-- [ ] Safe command allowlist is defined
-- [ ] Cross-references to architecture.md are correct
+<!-- AC:BEGIN -->
+- [ ] #1 `ios/AGENTS.md` has all build/test/lint commands
+- [ ] #2 XcodeBuildMCP usage is documented
+- [ ] #3 Coding conventions are specified
+- [ ] #4 Safe command allowlist is defined
+- [ ] #5 Cross-references to architecture.md are correct
 <!-- SECTION:DESCRIPTION:END -->
+
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Updated ios/AGENTS.md with build/lint commands, XcodeBuildMCP guidance, safe allowlist, and coding conventions. Updated ios/architecture.md Build + Run workflow and aligned ios/development.md app build/test commands.
+<!-- SECTION:NOTES:END -->
