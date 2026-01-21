@@ -8,6 +8,19 @@ configFiles:
   Release: Config/Signing.xcconfig
 
 targets:
+  MusicStoryRendererCore:
+    type: framework
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Models
+      - StoryParser.swift
+      - StoryPackageLoader.swift
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        GENERATE_INFOPLIST_FILE: YES
+
   MusicStoryRenderer:
     type: application
     platform: iOS
@@ -35,5 +48,15 @@ targets:
     settings:
       base:
         SWIFT_VERSION: 6.2
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
-      - target: MusicStoryRenderer
+      - target: MusicStoryRendererCore
+
+schemes:
+  MusicStoryRenderer:
+    build:
+      targets:
+        MusicStoryRenderer: all
+    test:
+      targets:
+        - MusicStoryRendererCoreTests

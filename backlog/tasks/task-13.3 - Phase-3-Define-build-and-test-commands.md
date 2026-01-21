@@ -1,9 +1,10 @@
 ---
 id: TASK-13.3
 title: 'Phase 3: Define build and test commands'
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 15:23'
+updated_date: '2026-01-20 22:41'
 labels:
   - macOS
 dependencies: []
@@ -80,10 +81,18 @@ With the XcodeGen project (TASK-13.1) and simulator (TASK-13.2) in place, we nee
 - Build warnings are acceptable; focus on zero errors.
 
 ## Acceptance Criteria
-
-- [ ] `xcodegen generate` works
-- [ ] `xcodebuild build` succeeds
-- [ ] `xcodebuild test` runs and passes
-- [ ] `swift test` continues to work for core library
-- [ ] Commands are documented in `ios/AGENTS.md`
+<!-- AC:BEGIN -->
+- [ ] #1 `xcodegen generate` works
+- [ ] #2 `xcodebuild build` succeeds
+- [ ] #3 `xcodebuild test` runs and passes
+- [ ] #4 `swift test` continues to work for core library
+- [ ] #5 Commands are documented in `ios/AGENTS.md`
 <!-- SECTION:DESCRIPTION:END -->
+
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Validated xcodegen generate, xcodebuild build/test, and swift test. Added MusicStoryRendererCore framework target plus scheme test action so xcodebuild test includes core tests. Added scripts/ios.sh helper and documented commands in ios/AGENTS.md. xcodebuild test emits non-exhaustive switch warning in Playback/AppleMusicPlaybackController.swift; swift test ran with system Swift since swiftenv was unavailable.
+<!-- SECTION:NOTES:END -->
