@@ -15,6 +15,10 @@ struct StoryRootView: View {
     @StateObject private var playbackController = AppleMusicPlaybackController()
     @State private var isShowingNowPlaying = false
     @State private var isShowingStoryPicker = false
+    @State private var isShowingURLPrompt = false
+    @State private var urlInput = ""
+    @State private var urlLoadError: String?
+    @State private var isLoadingURL = false
     @State private var isShowingStory = false
     @State private var shouldOpenStoryAfterLoad = false
 
@@ -25,6 +29,7 @@ struct StoryRootView: View {
                     store: store,
                     onOpenStory: openStory,
                     onPickStory: { isShowingStoryPicker = true },
+                    onLoadStoryURL: { isShowingURLPrompt = true },
                 )
                 .safeAreaInset(edge: .bottom) {
                     if playbackController.shouldShowPlaybackBar {
@@ -50,6 +55,16 @@ struct StoryRootView: View {
         .sheet(isPresented: $isShowingNowPlaying) {
             NowPlayingSheetView(controller: playbackController)
         }
+        .sheet(isPresented: $isShowingURLPrompt) {
+            StoryURLPromptView(
+                urlString: $urlInput,
+                isLoading: isLoadingURL,
+                errorMessage: urlLoadError,
+                onCancel: dismissURLPrompt,
+                onSubmit: startURLStoryLoad,
+            )
+            .interactiveDismissDisabled(isLoadingURL)
+        }
         .fileImporter(
             isPresented: $isShowingStoryPicker,
             allowedContentTypes: [.folder, UTType(filenameExtension: "mdx")].compactMap(\.self),
@@ -67,6 +82,11 @@ struct StoryRootView: View {
         }
         .onChange(of: store.state) { newState in
             handleStoryStateChange(newState)
+        }
+        .onChange(of: urlInput) { _ in
+            if isLoadingURL == false {
+                urlLoadError = nil
+            }
         }
         .task {
             store.loadBundledSampleIfAvailable()
@@ -90,6 +110,9 @@ struct StoryRootView: View {
 
     private func handleStoryStateChange(_ state: StoryLoadState) {
         guard shouldOpenStoryAfterLoad else {
+            if isLoadingURL {
+                handleURLPromptStateChange(state)
+            }
             return
         }
         switch state {
@@ -101,6 +124,55 @@ struct StoryRootView: View {
         case .idle, .loading:
             break
         }
+
+        if isLoadingURL {
+            handleURLPromptStateChange(state)
+        }
+    }
+
+    private func startURLStoryLoad() {
+        urlLoadError = nil
+        let trimmedInput = urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmedInput) else {
+            urlLoadError = "Enter a valid URL."
+            return
+        }
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
+            urlLoadError = "Story URLs must start with http or https."
+            return
+        }
+        guard url.pathExtension.lowercased() == "mdx" else {
+            urlLoadError = "Story URLs must point to a .mdx file."
+            return
+        }
+        isLoadingURL = true
+        shouldOpenStoryAfterLoad = true
+        Task {
+            await store.loadRemoteStory(from: url)
+        }
+    }
+
+    private func handleURLPromptStateChange(_ state: StoryLoadState) {
+        switch state {
+        case .loaded:
+            isLoadingURL = false
+            urlLoadError = nil
+            isShowingURLPrompt = false
+            urlInput = ""
+        case let .failed(message):
+            isLoadingURL = false
+            urlLoadError = message
+        case .idle, .loading:
+            break
+        }
+    }
+
+    private func dismissURLPrompt() {
+        guard isLoadingURL == false else {
+            return
+        }
+        urlLoadError = nil
+        isShowingURLPrompt = false
     }
 }
 
@@ -127,6 +199,59 @@ private struct StoryUnavailableView: View {
         .navigationTitle("Story")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+    }
+}
+
+private struct StoryURLPromptView: View {
+    @Binding var urlString: String
+    let isLoading: Bool
+    let errorMessage: String?
+    let onCancel: () -> Void
+    let onSubmit: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Paste a direct link to a hosted story.mdx file.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                TextField("https://example.com/story.mdx", text: $urlString)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .textFieldStyle(.roundedBorder)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+
+                Button(action: onSubmit) {
+                    Label(isLoading ? "Loading..." : "Load Story", systemImage: "arrow.down.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isLoading || urlString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                if isLoading {
+                    ProgressView("Downloading story...")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("Load Story URL")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                        .disabled(isLoading)
+                }
+            }
+        }
     }
 }
 

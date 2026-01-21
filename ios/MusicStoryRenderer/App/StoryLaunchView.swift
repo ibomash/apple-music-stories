@@ -4,6 +4,7 @@ struct StoryLaunchView: View {
     @ObservedObject var store: StoryDocumentStore
     let onOpenStory: () -> Void
     let onPickStory: () -> Void
+    let onLoadStoryURL: () -> Void
 
     var body: some View {
         ZStack {
@@ -12,7 +13,7 @@ struct StoryLaunchView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     StoryLaunchHeader()
                     StoryStatusSection(state: store.state, onOpenStory: onOpenStory)
-                    StorySourceSection(onPickStory: onPickStory)
+                    StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
                     if store.diagnostics.isEmpty == false {
                         StoryDiagnosticsSection(diagnostics: store.diagnostics)
                     }
@@ -286,6 +287,7 @@ private struct StoryErrorCard: View {
 
 private struct StorySourceSection: View {
     let onPickStory: () -> Void
+    let onLoadStoryURL: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -296,7 +298,12 @@ private struct StorySourceSection: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            Text("Select a folder or .mdx file to load a story package.")
+            Button(action: onLoadStoryURL) {
+                Label("Load from URL", systemImage: "link")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            Text("Select a local package or paste a URL to a hosted story.mdx file.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
