@@ -1,9 +1,10 @@
 ---
 id: TASK-13.5
 title: 'Phase 5: XcodeBuildMCP integration'
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 15:24'
+updated_date: '2026-01-21 02:14'
 labels:
   - macOS
 dependencies: []
@@ -82,11 +83,34 @@ With the XcodeGen project and simulator in place, we need to configure XcodeBuil
 - Some tools like `describe_ui` require Facebook IDB for full functionality.
 
 ## Acceptance Criteria
-
-- [ ] XcodeBuildMCP can discover the project
-- [ ] Session defaults are documented
-- [ ] `build_sim` succeeds
-- [ ] `test_sim` runs tests
-- [ ] `build_run_sim` launches the app
-- [ ] MCP workflow documented in `ios/AGENTS.md`
+<!-- AC:BEGIN -->
+- [ ] #1 #1 XcodeBuildMCP can discover the project
+- [ ] #2 #2 Session defaults are documented
+- [ ] #3 #3 `build_sim` succeeds
+- [ ] #4 #4 `test_sim` runs tests
+- [ ] #5 #5 `build_run_sim` launches the app
+- [ ] #6 #6 MCP workflow documented in `ios/AGENTS.md`
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+- Confirm XcodeBuildMCP config in opencode.jsonc.
+- Set session defaults for project/scheme/simulator.
+- Validate build/test/run workflows and capture screenshot/UI tree.
+- Document usage in ios/AGENTS.md.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- Verified opencode.jsonc includes XcodeBuildMCP MCP entry.
+- Set session defaults for project/scheme/iPhone 16 (latest OS).
+- build_sim, test_sim, and build_run_sim succeeded; captured screenshot and describe_ui output.
+- Added CFBundleExecutable to Info.plist to fix simulator install failure.
+- Documented XcodeBuildMCP usage in ios/AGENTS.md.
+<!-- SECTION:NOTES:END -->
+
+<!-- AC:END -->
+
+<!-- AC:END -->

@@ -61,3 +61,19 @@ The helper script initializes swiftenv when available and falls back to the syst
 ## MCP servers
 
 OpenCode MCP config for Apple Docs is defined at the repo root (`opencode.jsonc`) as `apple_docs` (local: `npx -y apple-doc-mcp-server@latest`). Use it when you need Apple documentation.
+
+## XcodeBuildMCP usage
+
+Before using XcodeBuildMCP tools, set session defaults:
+
+- Project: `ios/MusicStoryRenderer/MusicStoryRenderer.xcodeproj`
+- Scheme: `MusicStoryRenderer`
+- Simulator: `iPhone 16`
+
+Common tools:
+
+- `build_sim` - Build for simulator
+- `test_sim` - Run tests
+- `build_run_sim` - Build and launch app
+- `screenshot` - Capture simulator screen
+- `describe_ui` - Get view hierarchy for automation
