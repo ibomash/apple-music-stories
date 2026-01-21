@@ -15,7 +15,7 @@ struct StoryDocument: Identifiable {
     let media: [StoryMediaReference]
 
     var mediaByKey: [String: StoryMediaReference] {
-        Dictionary(uniqueKeysWithValues: media.map { (reference) in
+        Dictionary(uniqueKeysWithValues: media.map { reference in
             (reference.key, reference)
         })
     }
@@ -25,7 +25,7 @@ struct StoryDocument: Identifiable {
         let heroImage = StoryHeroImage(
             source: "https://example.com/hero.jpg",
             altText: "Alt text",
-            credit: "Photographer"
+            credit: "Photographer",
         )
         let mediaReference = StoryMediaReference(
             key: "trk-01",
@@ -34,7 +34,7 @@ struct StoryDocument: Identifiable {
             title: "Song Name",
             artist: "Artist Name",
             artworkURL: URL(string: "https://example.com/artwork.jpg"),
-            durationMilliseconds: 210000
+            durationMilliseconds: 210_000,
         )
         let section = StorySection(
             id: "intro",
@@ -42,9 +42,16 @@ struct StoryDocument: Identifiable {
             layout: "lede",
             leadMediaKey: "trk-01",
             blocks: [
-                .paragraph(id: "intro-paragraph", text: "Welcome to a music story that blends narrative with playback."),
-                .media(id: "intro-media", referenceKey: "trk-01", intent: PlaybackIntent(autoplay: true, usePreview: false, loop: false))
-            ]
+                .paragraph(
+                    id: "intro-paragraph",
+                    text: "Welcome to a music story that blends narrative with playback.",
+                ),
+                .media(
+                    id: "intro-media",
+                    referenceKey: "trk-01",
+                    intent: PlaybackIntent(autoplay: true, usePreview: false, loop: false),
+                ),
+            ],
         )
         return StoryDocument(
             schemaVersion: "0.1",
@@ -58,7 +65,7 @@ struct StoryDocument: Identifiable {
             locale: "en-US",
             heroImage: heroImage,
             sections: [section],
-            media: [mediaReference]
+            media: [mediaReference],
         )
     }
 }
@@ -84,9 +91,9 @@ enum StoryBlock: Identifiable, Hashable {
     var id: String {
         switch self {
         case let .paragraph(identifier, _):
-            return identifier
+            identifier
         case let .media(identifier, _, _):
-            return identifier
+            identifier
         }
     }
 }
@@ -112,13 +119,13 @@ enum StoryMediaType: String, Hashable {
     var displayName: String {
         switch self {
         case .track:
-            return "Track"
+            "Track"
         case .album:
-            return "Album"
+            "Album"
         case .playlist:
-            return "Playlist"
+            "Playlist"
         case .musicVideo:
-            return "Music Video"
+            "Music Video"
         }
     }
 
@@ -167,11 +174,11 @@ enum PlaybackAuthorizationStatus: String, Hashable {
     var actionTitle: String {
         switch self {
         case .authorized:
-            return "Apple Music Ready"
+            "Apple Music Ready"
         case .restricted:
-            return "Apple Music Restricted"
+            "Apple Music Restricted"
         case .denied, .notDetermined:
-            return "Sign in to Apple Music"
+            "Sign in to Apple Music"
         }
     }
 }
@@ -185,33 +192,33 @@ enum PlaybackState: String, Hashable {
     var actionSymbolName: String {
         switch self {
         case .playing, .loading:
-            return "pause.fill"
+            "pause.fill"
         case .stopped, .paused:
-            return "play.fill"
+            "play.fill"
         }
     }
 
     var actionLabel: String {
         switch self {
         case .playing:
-            return "Pause"
+            "Pause"
         case .loading:
-            return "Loading"
+            "Loading"
         case .stopped, .paused:
-            return "Play"
+            "Play"
         }
     }
 
     var statusLabel: String {
         switch self {
         case .playing:
-            return "Playing"
+            "Playing"
         case .paused:
-            return "Paused"
+            "Paused"
         case .loading:
-            return "Loading"
+            "Loading"
         case .stopped:
-            return "Stopped"
+            "Stopped"
         }
     }
 }
@@ -232,11 +239,11 @@ struct PlaybackNowPlayingMetadata: Hashable {
     }
 
     init(media: StoryMediaReference) {
-        self.title = media.title
-        self.subtitle = media.artist
-        self.artworkURL = media.artworkURL
-        self.appleMusicId = media.appleMusicId
-        self.type = media.type
+        title = media.title
+        subtitle = media.artist
+        artworkURL = media.artworkURL
+        appleMusicId = media.appleMusicId
+        type = media.type
     }
 }
 
@@ -255,11 +262,11 @@ enum PlaybackQueueStatus: String, Hashable {
     var label: String {
         switch self {
         case .idle:
-            return ""
+            ""
         case .queued:
-            return "Queued"
+            "Queued"
         case .playing:
-            return "Now Playing"
+            "Now Playing"
         }
     }
 }

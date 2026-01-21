@@ -13,7 +13,7 @@ struct ValidationDiagnostic: Identifiable, Hashable {
     let location: String?
 
     init(severity: DiagnosticSeverity, code: String, message: String, location: String? = nil) {
-        self.id = UUID()
+        id = UUID()
         self.severity = severity
         self.code = code
         self.message = message

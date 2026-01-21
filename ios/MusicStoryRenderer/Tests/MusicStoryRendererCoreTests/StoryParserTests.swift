@@ -1,5 +1,5 @@
-import XCTest
 @testable import MusicStoryRendererCore
+import XCTest
 
 final class StoryParserTests: XCTestCase {
     func testParsesValidStory() {
@@ -158,7 +158,7 @@ final class PlaybackQueueStateTests: XCTestCase {
             title: "Song",
             artist: "Artist",
             artworkURL: nil,
-            durationMilliseconds: 200000
+            durationMilliseconds: 200_000,
         )
     }
 }
@@ -189,7 +189,7 @@ final class PlaybackNowPlayingMetadataTests: XCTestCase {
             title: "Song",
             artist: "Artist",
             artworkURL: artworkURL,
-            durationMilliseconds: 200000
+            durationMilliseconds: 200_000,
         )
 
         let metadata = PlaybackNowPlayingMetadata(media: media)

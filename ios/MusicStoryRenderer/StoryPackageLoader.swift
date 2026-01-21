@@ -18,11 +18,11 @@ enum StoryPackageLoaderError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .invalidStoryURL(url):
-            return "Invalid story URL: \(url.path)."
+            "Invalid story URL: \(url.path)."
         case let .missingStoryFile(url):
-            return "Missing story.mdx in \(url.path)."
+            "Missing story.mdx in \(url.path)."
         case let .unreadableStory(url):
-            return "Unable to read story content at \(url.path)."
+            "Unable to read story content at \(url.path)."
         }
     }
 }

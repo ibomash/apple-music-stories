@@ -12,7 +12,7 @@ struct StoryRendererView: View {
                     StorySectionView(
                         section: section,
                         mediaLookup: document.mediaByKey,
-                        playbackController: playbackController
+                        playbackController: playbackController,
                     )
                 }
             }
@@ -26,7 +26,7 @@ struct StoryHeaderView: View {
     let document: StoryDocument
 
     var body: some View {
-        return VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             StoryHeroImageView(heroImage: document.heroImage)
             VStack(alignment: .leading, spacing: 8) {
                 Text(document.title)
@@ -87,7 +87,7 @@ struct StoryHeroImageView: View {
         LinearGradient(
             colors: [Color.indigo.opacity(0.8), Color.purple.opacity(0.8)],
             startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            endPoint: .bottomTrailing,
         )
     }
 }
@@ -98,7 +98,7 @@ struct StorySectionView: View {
     let playbackController: AppleMusicPlaybackController
 
     var body: some View {
-        return VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             if let title = section.title {
                 Text(title)
                     .font(.title2.bold())
@@ -146,14 +146,13 @@ struct MediaReferenceView: View {
     var body: some View {
         let status = playbackController.queueState.status(for: media)
         let playLabel = status == .playing ? "Playing" : (intent?.autoplay == true ? "Play Now" : "Play")
-        let queueLabel: String
-        switch status {
+        let queueLabel = switch status {
         case .idle:
-            queueLabel = "Queue"
+            "Queue"
         case .queued:
-            queueLabel = "Queued"
+            "Queued"
         case .playing:
-            queueLabel = "Playing"
+            "Playing"
         }
 
         return VStack(alignment: .leading, spacing: 16) {

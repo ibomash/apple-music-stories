@@ -1,0 +1,9 @@
+# SwiftFormat configuration
+--swiftversion 6.2
+--indent 4
+--indentcase false
+--trimwhitespace always
+--voidtype void
+--wraparguments before-first
+--wrapcollections before-first
+--maxwidth 120

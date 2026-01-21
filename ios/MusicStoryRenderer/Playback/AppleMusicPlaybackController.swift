@@ -34,7 +34,8 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     var shouldShowPlaybackBar: Bool {
-        needsAuthorizationPrompt || playbackState != .stopped || queueState.nowPlaying != nil || queueState.upNext.isEmpty == false
+        needsAuthorizationPrompt || playbackState != .stopped || queueState.nowPlaying != nil || queueState.upNext
+            .isEmpty == false
     }
 
     var displayEntry: PlaybackQueueEntry? {
@@ -66,7 +67,6 @@ final class AppleMusicPlaybackController: ObservableObject {
             }
         }
     }
-
 
     func queue(media: StoryMediaReference, intent: PlaybackIntent?) {
         var state = queueState
@@ -153,7 +153,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         }
     }
 
-    private func startPlayback(for media: StoryMediaReference, intent: PlaybackIntent) async {
+    private func startPlayback(for media: StoryMediaReference, intent _: PlaybackIntent) async {
         playbackState = .loading
         do {
             let queue = try await makeQueue(for: media)
@@ -285,9 +285,9 @@ final class AppleMusicPlaybackController: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .missingCatalogItem:
-                return "Unable to load the Apple Music item for playback."
+                "Unable to load the Apple Music item for playback."
             case .unsupportedMedia:
-                return "Music video playback is not supported yet."
+                "Music video playback is not supported yet."
             }
         }
     }

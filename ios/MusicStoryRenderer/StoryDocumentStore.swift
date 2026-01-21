@@ -57,8 +57,8 @@ final class StoryDocumentStore: ObservableObject {
             diagnostics = [
                 .warning(
                     code: "missing_bundle_sample",
-                    message: "Bundled \(name).mdx not found; using built-in sample story."
-                )
+                    message: "Bundled \(name).mdx not found; using built-in sample story.",
+                ),
             ]
             state = .loaded(.sample())
         }
@@ -72,27 +72,27 @@ final class StoryDocumentStore: ObservableObject {
 
     private func startSecurityScopedAccess(for url: URL) {
         #if os(iOS) || os(macOS)
-        guard url.isFileURL else {
-            clearSecurityScopedAccess()
-            return
-        }
-        if activeSecurityScopedURL != url {
-            clearSecurityScopedAccess()
-        }
-        if hasSecurityScopedAccess == false {
-            hasSecurityScopedAccess = url.startAccessingSecurityScopedResource()
-        }
-        activeSecurityScopedURL = url
+            guard url.isFileURL else {
+                clearSecurityScopedAccess()
+                return
+            }
+            if activeSecurityScopedURL != url {
+                clearSecurityScopedAccess()
+            }
+            if hasSecurityScopedAccess == false {
+                hasSecurityScopedAccess = url.startAccessingSecurityScopedResource()
+            }
+            activeSecurityScopedURL = url
         #endif
     }
 
     private func clearSecurityScopedAccess() {
         #if os(iOS) || os(macOS)
-        if hasSecurityScopedAccess, let activeURL = activeSecurityScopedURL {
-            activeURL.stopAccessingSecurityScopedResource()
-        }
-        hasSecurityScopedAccess = false
-        activeSecurityScopedURL = nil
+            if hasSecurityScopedAccess, let activeURL = activeSecurityScopedURL {
+                activeURL.stopAccessingSecurityScopedResource()
+            }
+            hasSecurityScopedAccess = false
+            activeSecurityScopedURL = nil
         #endif
     }
 }

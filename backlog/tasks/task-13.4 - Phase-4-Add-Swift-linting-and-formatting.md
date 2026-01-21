@@ -1,9 +1,10 @@
 ---
 id: TASK-13.4
 title: 'Phase 4: Add Swift linting and formatting'
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 15:23'
+updated_date: '2026-01-21 01:46'
 labels: []
 dependencies: []
 parent_task_id: TASK-13
@@ -94,10 +95,25 @@ This phase is **optional** and lower priority than the core build/test workflow.
 - Agents should run lint after making changes but formatting can be applied automatically.
 
 ## Acceptance Criteria
-
-- [ ] `.swiftlint.yml` exists with reasonable defaults
-- [ ] `.swiftformat` exists with Swift 6.2 settings
-- [ ] `swiftlint lint` runs without crashes (warnings OK)
-- [ ] `swiftformat --lint` runs without crashes
-- [ ] Commands documented in `ios/AGENTS.md`
+<!-- AC:BEGIN -->
+- [ ] #1 `.swiftlint.yml` exists with reasonable defaults
+- [ ] #2 `.swiftformat` exists with Swift 6.2 settings
+- [ ] #3 `swiftlint lint` runs without crashes (warnings OK)
+- [ ] #4 `swiftformat --lint` runs without crashes
+- [ ] #5 Commands documented in `ios/AGENTS.md`
 <!-- SECTION:DESCRIPTION:END -->
+
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implemented SwiftLint/SwiftFormat setup:
+- Added ios/MusicStoryRenderer/.swiftlint.yml and .swiftformat configs.
+- Documented lint/format commands in ios/AGENTS.md and updated scripts/ios.sh with lint/format helpers.
+- Installed swiftlint/swiftformat via Homebrew.
+
+Checks:
+- swiftlint lint --config ios/MusicStoryRenderer/.swiftlint.yml ios/MusicStoryRenderer (reported violations in StoryParser.swift and build artifacts; no crash).
+- swiftformat --lint ios/MusicStoryRenderer (reported formatting violations across multiple files).
+<!-- SECTION:NOTES:END -->

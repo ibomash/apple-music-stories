@@ -34,10 +34,26 @@ swift test
 xcodebuild clean -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer
 ```
 
+## Linting and formatting
+
+Install tooling if needed:
+
+```bash
+brew install swiftlint swiftformat
+```
+
+Run from the repo root:
+
+```bash
+swiftlint lint --config ios/MusicStoryRenderer/.swiftlint.yml ios/MusicStoryRenderer
+swiftformat --lint ios/MusicStoryRenderer
+swiftformat ios/MusicStoryRenderer
+```
+
 Helper script from the repo root:
 
 ```bash
-./scripts/ios.sh generate|build|test|swift-test|clean
+./scripts/ios.sh generate|build|test|swift-test|lint|format|clean
 ```
 
 The helper script initializes swiftenv when available and falls back to the system Swift toolchain.

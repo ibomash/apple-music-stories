@@ -1,5 +1,5 @@
-import XCTest
 @testable import MusicStoryRendererCore
+import XCTest
 
 final class StoryPackageLoaderTests: XCTestCase {
     func testLoadsStoryFromDirectory() throws {

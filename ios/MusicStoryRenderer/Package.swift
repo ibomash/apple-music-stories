@@ -5,7 +5,7 @@ let package = Package(
     name: "MusicStoryRendererCore",
     platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
-        .library(name: "MusicStoryRendererCore", targets: ["MusicStoryRendererCore"])
+        .library(name: "MusicStoryRendererCore", targets: ["MusicStoryRendererCore"]),
     ],
     targets: [
         .target(
@@ -16,13 +16,13 @@ let package = Package(
                 "Playback",
                 "Rendering",
                 "Tests",
-                "StoryDocumentStore.swift"
-            ]
+                "StoryDocumentStore.swift",
+            ],
         ),
         .testTarget(
             name: "MusicStoryRendererCoreTests",
             dependencies: ["MusicStoryRendererCore"],
-            path: "Tests/MusicStoryRendererCoreTests"
-        )
-    ]
+            path: "Tests/MusicStoryRendererCoreTests",
+        ),
+    ],
 )

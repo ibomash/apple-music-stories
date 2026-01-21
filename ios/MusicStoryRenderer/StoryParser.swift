@@ -28,7 +28,7 @@ struct StoryParser {
         let sections = parseBody(
             split.body,
             sectionMetadata: frontMatter.sections,
-            diagnostics: &bodyDiagnostics
+            diagnostics: &bodyDiagnostics,
         )
         diagnostics.append(contentsOf: bodyDiagnostics)
 
@@ -45,7 +45,7 @@ struct StoryParser {
             locale: frontMatter.locale,
             heroImage: frontMatter.heroImage,
             sections: sections,
-            media: frontMatter.media
+            media: frontMatter.media,
         )
 
         return ParsedStory(document: hasErrors ? nil : document, diagnostics: diagnostics)
@@ -53,17 +53,18 @@ struct StoryParser {
 
     private func splitFrontMatter(
         from storyText: String,
-        diagnostics: inout [ValidationDiagnostic]
+        diagnostics: inout [ValidationDiagnostic],
     ) -> (frontMatter: String, body: String)? {
         let lines = storyText.components(separatedBy: .newlines)
         guard let firstLine = lines.first,
-              firstLine.trimmingCharacters(in: .whitespacesAndNewlines) == "---" else {
+              firstLine.trimmingCharacters(in: .whitespacesAndNewlines) == "---"
+        else {
             diagnostics.append(.error(code: "missing_front_matter", message: "Missing front matter header '---'."))
             return nil
         }
 
         var closingIndex: Int?
-        for index in 1..<lines.count {
+        for index in 1 ..< lines.count {
             if lines[index].trimmingCharacters(in: .whitespacesAndNewlines) == "---" {
                 closingIndex = index
                 break
@@ -75,7 +76,7 @@ struct StoryParser {
             return nil
         }
 
-        let frontMatterLines = lines[1..<endIndex]
+        let frontMatterLines = lines[1 ..< endIndex]
         let bodyLines = lines.suffix(from: endIndex + 1)
         return (frontMatterLines.joined(separator: "\n"), bodyLines.joined(separator: "\n"))
     }
@@ -83,7 +84,7 @@ struct StoryParser {
     private func mapFrontMatter(
         _ values: [String: Any],
         assetBaseURL: URL?,
-        diagnostics: inout [ValidationDiagnostic]
+        diagnostics: inout [ValidationDiagnostic],
     ) -> FrontMatterData? {
         let resolver = StoryAssetResolver(baseURL: assetBaseURL)
 
@@ -112,7 +113,8 @@ struct StoryParser {
 
         guard let schemaVersion = stringValue("schema_version", required: true),
               let storyId = stringValue("id", required: true),
-              let title = stringValue("title", required: true) else {
+              let title = stringValue("title", required: true)
+        else {
             return nil
         }
 
@@ -141,7 +143,10 @@ struct StoryParser {
         var sectionMetadata: [SectionMetadata] = []
         for section in sectionEntries {
             guard let id = section["id"], let sectionTitle = section["title"] else {
-                diagnostics.append(.error(code: "missing_required_field", message: "Section entries require id and title."))
+                diagnostics.append(.error(
+                    code: "missing_required_field",
+                    message: "Section entries require id and title.",
+                ))
                 continue
             }
             sectionMetadata.append(
@@ -149,8 +154,8 @@ struct StoryParser {
                     id: id,
                     title: sectionTitle,
                     layout: section["layout"],
-                    leadMediaKey: section["lead_media"]
-                )
+                    leadMediaKey: section["lead_media"],
+                ),
             )
         }
 
@@ -166,8 +171,12 @@ struct StoryParser {
                   let mediaType = StoryMediaType(storageValue: typeValue),
                   let appleMusicId = entry["apple_music_id"],
                   let mediaTitle = entry["title"],
-                  let artist = entry["artist"] else {
-                diagnostics.append(.error(code: "missing_required_field", message: "Media entries require key, type, apple_music_id, title, and artist."))
+                  let artist = entry["artist"]
+            else {
+                diagnostics.append(.error(
+                    code: "missing_required_field",
+                    message: "Media entries require key, type, apple_music_id, title, and artist.",
+                ))
                 continue
             }
 
@@ -181,13 +190,16 @@ struct StoryParser {
                     title: mediaTitle,
                     artist: artist,
                     artworkURL: artworkURL,
-                    durationMilliseconds: duration
-                )
+                    durationMilliseconds: duration,
+                ),
             )
         }
 
         if mediaReferences.isEmpty {
-            diagnostics.append(.error(code: "missing_required_field", message: "At least one media reference is required."))
+            diagnostics.append(.error(
+                code: "missing_required_field",
+                message: "At least one media reference is required.",
+            ))
         }
 
         guard let publishDate else {
@@ -206,7 +218,7 @@ struct StoryParser {
             locale: locale,
             heroImage: heroImage,
             sections: sectionMetadata,
-            media: mediaReferences
+            media: mediaReferences,
         )
     }
 
@@ -224,7 +236,7 @@ struct StoryParser {
     private func parseBody(
         _ bodyText: String,
         sectionMetadata: [SectionMetadata],
-        diagnostics: inout [ValidationDiagnostic]
+        diagnostics: inout [ValidationDiagnostic],
     ) -> [StorySection] {
         let matches = Regex.section.matches(in: bodyText, range: NSRange(bodyText.startIndex..., in: bodyText))
         if matches.isEmpty {
@@ -239,13 +251,17 @@ struct StoryParser {
         for match in matches {
             guard let matchRange = Range(match.range, in: bodyText),
                   let attributeRange = Range(match.range(at: 1), in: bodyText),
-                  let contentRange = Range(match.range(at: 2), in: bodyText) else {
+                  let contentRange = Range(match.range(at: 2), in: bodyText)
+            else {
                 continue
             }
 
-            let leadingText = bodyText[lastIndex..<matchRange.lowerBound]
+            let leadingText = bodyText[lastIndex ..< matchRange.lowerBound]
             if leadingText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-                diagnostics.append(.error(code: "text_outside_section", message: "Text found outside of <Section> blocks."))
+                diagnostics.append(.error(
+                    code: "text_outside_section",
+                    message: "Text found outside of <Section> blocks.",
+                ))
             }
             lastIndex = matchRange.upperBound
 
@@ -254,32 +270,55 @@ struct StoryParser {
             let attributes = parseAttributes(from: attributeText)
 
             guard let sectionId = attributes["id"] else {
-                diagnostics.append(.error(code: "missing_section_id", message: "<Section> is missing required id attribute."))
+                diagnostics.append(.error(
+                    code: "missing_section_id",
+                    message: "<Section> is missing required id attribute.",
+                ))
                 continue
             }
 
             if seenSectionIds.contains(sectionId) {
-                diagnostics.append(.error(code: "duplicate_section_id", message: "Duplicate section id '\(sectionId)'."))
+                diagnostics.append(.error(
+                    code: "duplicate_section_id",
+                    message: "Duplicate section id '\(sectionId)'.",
+                ))
             }
             seenSectionIds.insert(sectionId)
 
             if contentText.contains("<Section") {
-                diagnostics.append(.error(code: "nested_section", message: "Nested <Section> blocks are not supported.", location: sectionId))
+                diagnostics.append(.error(
+                    code: "nested_section",
+                    message: "Nested <Section> blocks are not supported.",
+                    location: sectionId,
+                ))
             }
 
             let metadata = metadataById[sectionId]
             if metadata == nil {
-                diagnostics.append(.error(code: "section_missing_metadata", message: "Section '\(sectionId)' is missing from front matter."))
+                diagnostics.append(.error(
+                    code: "section_missing_metadata",
+                    message: "Section '\(sectionId)' is missing from front matter.",
+                ))
             }
 
             let title = attributes["title"] ?? metadata?.title
             if title == nil {
-                diagnostics.append(.error(code: "missing_section_title", message: "Section '\(sectionId)' is missing a title."))
+                diagnostics.append(.error(
+                    code: "missing_section_title",
+                    message: "Section '\(sectionId)' is missing a title.",
+                ))
             } else if let metadataTitle = metadata?.title, title != metadataTitle {
-                diagnostics.append(.warning(code: "section_title_mismatch", message: "Section '\(sectionId)' title does not match front matter."))
+                diagnostics.append(.warning(
+                    code: "section_title_mismatch",
+                    message: "Section '\(sectionId)' title does not match front matter.",
+                ))
             }
 
-            let layout = normalizedLayout(attributes["layout"] ?? metadata?.layout, sectionId: sectionId, diagnostics: &diagnostics)
+            let layout = normalizedLayout(
+                attributes["layout"] ?? metadata?.layout,
+                sectionId: sectionId,
+                diagnostics: &diagnostics,
+            )
             let leadMediaKey = metadata?.leadMediaKey
             let blocks = parseSectionBlocks(contentText, sectionId: sectionId, diagnostics: &diagnostics)
 
@@ -289,8 +328,8 @@ struct StoryParser {
                     title: title,
                     layout: layout,
                     leadMediaKey: leadMediaKey,
-                    blocks: blocks
-                )
+                    blocks: blocks,
+                ),
             )
         }
 
@@ -301,7 +340,10 @@ struct StoryParser {
 
         let unusedMetadata = Set(metadataById.keys).subtracting(seenSectionIds)
         if unusedMetadata.isEmpty == false {
-            diagnostics.append(.warning(code: "unused_section_metadata", message: "Front matter includes sections not present in MDX body."))
+            diagnostics.append(.warning(
+                code: "unused_section_metadata",
+                message: "Front matter includes sections not present in MDX body.",
+            ))
         }
 
         return sections
@@ -310,9 +352,12 @@ struct StoryParser {
     private func parseSectionBlocks(
         _ contentText: String,
         sectionId: String,
-        diagnostics: inout [ValidationDiagnostic]
+        diagnostics: inout [ValidationDiagnostic],
     ) -> [StoryBlock] {
-        let matches = Regex.mediaRef.matches(in: contentText, range: NSRange(contentText.startIndex..., in: contentText))
+        let matches = Regex.mediaRef.matches(
+            in: contentText,
+            range: NSRange(contentText.startIndex..., in: contentText),
+        )
         var blocks: [StoryBlock] = []
         var paragraphIndex = 0
         var mediaIndex = 0
@@ -329,18 +374,23 @@ struct StoryParser {
 
         for match in matches {
             guard let matchRange = Range(match.range, in: contentText),
-                  let attributeRange = Range(match.range(at: 1), in: contentText) else {
+                  let attributeRange = Range(match.range(at: 1), in: contentText)
+            else {
                 continue
             }
 
-            let leadingText = String(contentText[lastIndex..<matchRange.lowerBound])
+            let leadingText = String(contentText[lastIndex ..< matchRange.lowerBound])
             appendParagraphs(from: leadingText)
             lastIndex = matchRange.upperBound
 
             let attributeText = String(contentText[attributeRange])
             let attributes = parseAttributes(from: attributeText)
             guard let referenceKey = attributes["ref"] else {
-                diagnostics.append(.error(code: "missing_media_ref", message: "<MediaRef> is missing required ref attribute.", location: sectionId))
+                diagnostics.append(.error(
+                    code: "missing_media_ref",
+                    message: "<MediaRef> is missing required ref attribute.",
+                    location: sectionId,
+                ))
                 continue
             }
 
@@ -356,10 +406,13 @@ struct StoryParser {
         let unsupportedContent = Regex.mediaRef.stringByReplacingMatches(
             in: contentText,
             range: NSRange(contentText.startIndex..., in: contentText),
-            withTemplate: ""
+            withTemplate: "",
         )
         if unsupportedContent.contains("<") {
-            diagnostics.append(.warning(code: "unsupported_html", message: "Unsupported HTML or components found in section '\(sectionId)'."))
+            diagnostics.append(.warning(
+                code: "unsupported_html",
+                message: "Unsupported HTML or components found in section '\(sectionId)'.",
+            ))
         }
 
         return blocks
@@ -369,7 +422,8 @@ struct StoryParser {
         var attributes: [String: String] = [:]
         for match in Regex.attributes.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
             guard let keyRange = Range(match.range(at: 1), in: text),
-                  let valueRange = Range(match.range(at: 2), in: text) else {
+                  let valueRange = Range(match.range(at: 2), in: text)
+            else {
                 continue
             }
             attributes[String(text[keyRange])] = String(text[valueRange])
@@ -380,20 +434,23 @@ struct StoryParser {
     private func normalizedLayout(
         _ value: String?,
         sectionId: String,
-        diagnostics: inout [ValidationDiagnostic]
+        diagnostics: inout [ValidationDiagnostic],
     ) -> String? {
         let normalized = (value ?? "body").lowercased()
         if normalized == "lede" || normalized == "body" {
             return normalized
         }
-        diagnostics.append(.warning(code: "invalid_layout", message: "Section '\(sectionId)' has unsupported layout '\(normalized)'."))
+        diagnostics.append(.warning(
+            code: "invalid_layout",
+            message: "Section '\(sectionId)' has unsupported layout '\(normalized)'.",
+        ))
         return "body"
     }
 
     private func parseIntent(
         _ value: String?,
         diagnostics: inout [ValidationDiagnostic],
-        referenceKey: String
+        referenceKey: String,
     ) -> PlaybackIntent {
         guard let value else {
             return .preview
@@ -406,7 +463,10 @@ struct StoryParser {
         case "autoplay":
             return .autoplay
         default:
-            diagnostics.append(.warning(code: "invalid_intent", message: "MediaRef '\(referenceKey)' uses unsupported intent '\(value)'."))
+            diagnostics.append(.warning(
+                code: "invalid_intent",
+                message: "MediaRef '\(referenceKey)' uses unsupported intent '\(value)'.",
+            ))
             return .preview
         }
     }
@@ -488,7 +548,7 @@ private struct FrontMatterParser {
     private var index = 0
 
     init(text: String) {
-        self.lines = text
+        lines = text
             .components(separatedBy: .newlines)
             .map { YAMLLine(raw: $0) }
     }
@@ -502,12 +562,18 @@ private struct FrontMatterParser {
                 continue
             }
             guard line.indentation == 0 else {
-                diagnostics.append(.warning(code: "invalid_indentation", message: "Unexpected indentation in front matter."))
+                diagnostics.append(.warning(
+                    code: "invalid_indentation",
+                    message: "Unexpected indentation in front matter.",
+                ))
                 index += 1
                 continue
             }
             guard let (key, value) = splitKeyValue(line.trimmed) else {
-                diagnostics.append(.warning(code: "invalid_front_matter", message: "Unable to parse front matter line: \(line.raw)."))
+                diagnostics.append(.warning(
+                    code: "invalid_front_matter",
+                    message: "Unable to parse front matter line: \(line.raw).",
+                ))
                 index += 1
                 continue
             }
@@ -547,12 +613,18 @@ private struct FrontMatterParser {
                 break
             }
             if line.indentation > indentationLevel {
-                diagnostics.append(.warning(code: "invalid_indentation", message: "Unexpected indentation in front matter object."))
+                diagnostics.append(.warning(
+                    code: "invalid_indentation",
+                    message: "Unexpected indentation in front matter object.",
+                ))
                 index += 1
                 continue
             }
             guard let (key, value) = splitKeyValue(line.trimmed) else {
-                diagnostics.append(.warning(code: "invalid_front_matter", message: "Unable to parse front matter line: \(line.raw)."))
+                diagnostics.append(.warning(
+                    code: "invalid_front_matter",
+                    message: "Unable to parse front matter line: \(line.raw).",
+                ))
                 index += 1
                 continue
             }
@@ -595,7 +667,10 @@ private struct FrontMatterParser {
                     break
                 }
                 guard let (key, value) = splitKeyValue(nextLine.trimmed) else {
-                    diagnostics.append(.warning(code: "invalid_front_matter", message: "Unable to parse front matter line: \(nextLine.raw)."))
+                    diagnostics.append(.warning(
+                        code: "invalid_front_matter",
+                        message: "Unable to parse front matter line: \(nextLine.raw).",
+                    ))
                     index += 1
                     continue
                 }
@@ -649,7 +724,7 @@ private struct FrontMatterParser {
 
     private func parseInlineArray(_ value: String) -> [String] {
         let trimmed = value.trimmingCharacters(in: .whitespaces)
-        guard trimmed.hasPrefix("[") && trimmed.hasSuffix("]") else {
+        guard trimmed.hasPrefix("["), trimmed.hasSuffix("]") else {
             return []
         }
         let inner = trimmed.dropFirst().dropLast()
@@ -666,8 +741,8 @@ private struct FrontMatterParser {
 
         init(raw: String) {
             self.raw = raw
-            self.indentation = raw.prefix(while: { $0 == " " }).count
-            self.trimmed = raw.trimmingCharacters(in: .whitespaces)
+            indentation = raw.prefix(while: { $0 == " " }).count
+            trimmed = raw.trimmingCharacters(in: .whitespaces)
         }
     }
 }
@@ -675,15 +750,15 @@ private struct FrontMatterParser {
 private enum Regex {
     static let section = try! NSRegularExpression(
         pattern: "<Section\\s+([^>]+)>(.*?)</Section>",
-        options: [.dotMatchesLineSeparators]
+        options: [.dotMatchesLineSeparators],
     )
     static let mediaRef = try! NSRegularExpression(
         pattern: "<MediaRef\\s+([^/>]+?)\\s*/>",
-        options: [.dotMatchesLineSeparators]
+        options: [.dotMatchesLineSeparators],
     )
     static let attributes = try! NSRegularExpression(
         pattern: "(\\w+)=\\\"([^\\\"]*)\\\"",
-        options: []
+        options: [],
     )
 }
 

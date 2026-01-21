@@ -30,7 +30,7 @@ struct StoryRootView: View {
                         ContentUnavailableView(
                             "Unable to Load Story",
                             systemImage: "exclamationmark.triangle",
-                            description: Text(message)
+                            description: Text(message),
                         )
                     }
                 }
@@ -58,8 +58,8 @@ struct StoryRootView: View {
         }
         .fileImporter(
             isPresented: $isShowingStoryPicker,
-            allowedContentTypes: [.folder, UTType(filenameExtension: "mdx")].compactMap { $0 },
-            allowsMultipleSelection: false
+            allowedContentTypes: [.folder, UTType(filenameExtension: "mdx")].compactMap(\.self),
+            allowsMultipleSelection: false,
         ) { result in
             switch result {
             case let .success(urls):

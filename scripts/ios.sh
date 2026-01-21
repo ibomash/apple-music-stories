@@ -25,11 +25,17 @@ case "${1:-}" in
     init_swiftenv
     (cd "$IOS_DIR" && swift test)
     ;;
+  lint)
+    (cd "$ROOT_DIR" && swiftlint lint --config ios/MusicStoryRenderer/.swiftlint.yml ios/MusicStoryRenderer)
+    ;;
+  format)
+    (cd "$ROOT_DIR" && swiftformat ios/MusicStoryRenderer)
+    ;;
   clean)
     (cd "$IOS_DIR" && xcodebuild clean -project MusicStoryRenderer.xcodeproj -scheme MusicStoryRenderer)
     ;;
   *)
-    echo "Usage: $0 {generate|build|test|swift-test|clean}"
+    echo "Usage: $0 {generate|build|test|swift-test|lint|format|clean}"
     exit 1
     ;;
 esac
