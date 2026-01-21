@@ -64,11 +64,9 @@ struct StoryParser {
         }
 
         var closingIndex: Int?
-        for index in 1 ..< lines.count {
-            if lines[index].trimmingCharacters(in: .whitespacesAndNewlines) == "---" {
-                closingIndex = index
-                break
-            }
+        for index in 1 ..< lines.count where lines[index].trimmingCharacters(in: .whitespacesAndNewlines) == "---" {
+            closingIndex = index
+            break
         }
 
         guard let endIndex = closingIndex else {
@@ -88,57 +86,113 @@ struct StoryParser {
     ) -> FrontMatterData? {
         let resolver = StoryAssetResolver(baseURL: assetBaseURL)
 
-        func stringValue(_ key: String, required: Bool) -> String? {
-            if let value = values[key] as? String, !value.isEmpty {
-                return value
-            }
-            if required {
-                diagnostics.append(.error(code: "missing_required_field", message: "Missing required field '\(key)'."))
-            }
-            return nil
-        }
-
-        func stringList(_ key: String, required: Bool) -> [String] {
-            if let list = values[key] as? [String] {
-                return list.filter { !$0.isEmpty }
-            }
-            if let value = values[key] as? String, !value.isEmpty {
-                return [value]
-            }
-            if required {
-                diagnostics.append(.error(code: "missing_required_field", message: "Missing required field '\(key)'."))
-            }
-            return []
-        }
-
-        guard let schemaVersion = stringValue("schema_version", required: true),
-              let storyId = stringValue("id", required: true),
-              let title = stringValue("title", required: true)
+        guard let schemaVersion = stringValue(
+            "schema_version",
+            from: values,
+            required: true,
+            diagnostics: &diagnostics,
+        ),
+            let storyId = stringValue("id", from: values, required: true, diagnostics: &diagnostics),
+            let title = stringValue("title", from: values, required: true, diagnostics: &diagnostics)
         else {
             return nil
         }
 
-        let subtitle = stringValue("subtitle", required: false)
-        let authors = stringList("authors", required: true)
-        let editors = stringList("editors", required: false)
-        let publishDateValue = stringValue("publish_date", required: true)
-        let tags = stringList("tags", required: false)
-        let locale = stringValue("locale", required: false)
+        let subtitle = stringValue("subtitle", from: values, required: false, diagnostics: &diagnostics)
+        let authors = stringList("authors", from: values, required: true, diagnostics: &diagnostics)
+        let editors = stringList("editors", from: values, required: false, diagnostics: &diagnostics)
+        let publishDateValue = stringValue("publish_date", from: values, required: true, diagnostics: &diagnostics)
+        let tags = stringList("tags", from: values, required: false, diagnostics: &diagnostics)
+        let locale = stringValue("locale", from: values, required: false, diagnostics: &diagnostics)
 
         let publishDate = parsePublishDate(publishDateValue, diagnostics: &diagnostics)
+        let heroImage = parseHeroImage(values, resolver: resolver, diagnostics: &diagnostics)
+        let sectionMetadata = parseSectionMetadata(values, diagnostics: &diagnostics)
+        if sectionMetadata.isEmpty {
+            diagnostics.append(.error(code: "missing_required_field", message: "At least one section is required."))
+        }
 
-        let heroImage: StoryHeroImage? = {
-            guard let heroData = values["hero_image"] as? [String: String] else {
-                return nil
-            }
-            guard let src = heroData["src"], let alt = heroData["alt"] else {
-                diagnostics.append(.error(code: "missing_required_field", message: "Hero image requires src and alt."))
-                return nil
-            }
-            let resolvedSource = resolver.resolveString(from: src)
-            return StoryHeroImage(source: resolvedSource, altText: alt, credit: heroData["credit"])
-        }()
+        let mediaReferences = parseMediaReferences(values, resolver: resolver, diagnostics: &diagnostics)
+        if mediaReferences.isEmpty {
+            diagnostics.append(.error(
+                code: "missing_required_field",
+                message: "At least one media reference is required.",
+            ))
+        }
 
+        guard let publishDate else {
+            return nil
+        }
+
+        return FrontMatterData(
+            schemaVersion: schemaVersion,
+            id: storyId,
+            title: title,
+            subtitle: subtitle,
+            authors: authors,
+            editors: editors,
+            publishDate: publishDate,
+            tags: tags,
+            locale: locale,
+            heroImage: heroImage,
+            sections: sectionMetadata,
+            media: mediaReferences,
+        )
+    }
+
+    private func stringValue(
+        _ key: String,
+        from values: [String: Any],
+        required: Bool,
+        diagnostics: inout [ValidationDiagnostic],
+    ) -> String? {
+        if let value = values[key] as? String, !value.isEmpty {
+            return value
+        }
+        if required {
+            diagnostics.append(.error(code: "missing_required_field", message: "Missing required field '\(key)'."))
+        }
+        return nil
+    }
+
+    private func stringList(
+        _ key: String,
+        from values: [String: Any],
+        required: Bool,
+        diagnostics: inout [ValidationDiagnostic],
+    ) -> [String] {
+        if let list = values[key] as? [String] {
+            return list.filter { !$0.isEmpty }
+        }
+        if let value = values[key] as? String, !value.isEmpty {
+            return [value]
+        }
+        if required {
+            diagnostics.append(.error(code: "missing_required_field", message: "Missing required field '\(key)'."))
+        }
+        return []
+    }
+
+    private func parseHeroImage(
+        _ values: [String: Any],
+        resolver: StoryAssetResolver,
+        diagnostics: inout [ValidationDiagnostic],
+    ) -> StoryHeroImage? {
+        guard let heroData = values["hero_image"] as? [String: String] else {
+            return nil
+        }
+        guard let src = heroData["src"], let alt = heroData["alt"] else {
+            diagnostics.append(.error(code: "missing_required_field", message: "Hero image requires src and alt."))
+            return nil
+        }
+        let resolvedSource = resolver.resolveString(from: src)
+        return StoryHeroImage(source: resolvedSource, altText: alt, credit: heroData["credit"])
+    }
+
+    private func parseSectionMetadata(
+        _ values: [String: Any],
+        diagnostics: inout [ValidationDiagnostic],
+    ) -> [SectionMetadata] {
         let sectionEntries = values["sections"] as? [[String: String]] ?? []
         var sectionMetadata: [SectionMetadata] = []
         for section in sectionEntries {
@@ -158,11 +212,14 @@ struct StoryParser {
                 ),
             )
         }
+        return sectionMetadata
+    }
 
-        if sectionMetadata.isEmpty {
-            diagnostics.append(.error(code: "missing_required_field", message: "At least one section is required."))
-        }
-
+    private func parseMediaReferences(
+        _ values: [String: Any],
+        resolver: StoryAssetResolver,
+        diagnostics: inout [ValidationDiagnostic],
+    ) -> [StoryMediaReference] {
         let mediaEntries = values["media"] as? [[String: String]] ?? []
         var mediaReferences: [StoryMediaReference] = []
         for entry in mediaEntries {
@@ -194,32 +251,7 @@ struct StoryParser {
                 ),
             )
         }
-
-        if mediaReferences.isEmpty {
-            diagnostics.append(.error(
-                code: "missing_required_field",
-                message: "At least one media reference is required.",
-            ))
-        }
-
-        guard let publishDate else {
-            return nil
-        }
-
-        return FrontMatterData(
-            schemaVersion: schemaVersion,
-            id: storyId,
-            title: title,
-            subtitle: subtitle,
-            authors: authors,
-            editors: editors,
-            publishDate: publishDate,
-            tags: tags,
-            locale: locale,
-            heroImage: heroImage,
-            sections: sectionMetadata,
-            media: mediaReferences,
-        )
+        return mediaReferences
     }
 
     private func parsePublishDate(_ value: String?, diagnostics: inout [ValidationDiagnostic]) -> Date? {
@@ -748,18 +780,38 @@ private struct FrontMatterParser {
 }
 
 private enum Regex {
-    static let section = try! NSRegularExpression(
-        pattern: "<Section\\s+([^>]+)>(.*?)</Section>",
-        options: [.dotMatchesLineSeparators],
-    )
-    static let mediaRef = try! NSRegularExpression(
-        pattern: "<MediaRef\\s+([^/>]+?)\\s*/>",
-        options: [.dotMatchesLineSeparators],
-    )
-    static let attributes = try! NSRegularExpression(
-        pattern: "(\\w+)=\\\"([^\\\"]*)\\\"",
-        options: [],
-    )
+    static let section: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<Section\\s+([^>]+)>(.*?)</Section>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid section regex: \(error)")
+        }
+    }()
+
+    static let mediaRef: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<MediaRef\\s+([^/>]+?)\\s*/>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid media ref regex: \(error)")
+        }
+    }()
+
+    static let attributes: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "(\\w+)=\\\"([^\\\"]*)\\\"",
+                options: [],
+            )
+        } catch {
+            preconditionFailure("Invalid attribute regex: \(error)")
+        }
+    }()
 }
 
 private enum DateFormatters {
