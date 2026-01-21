@@ -15,33 +15,27 @@ struct StoryRootView: View {
     @StateObject private var playbackController = AppleMusicPlaybackController()
     @State private var isShowingNowPlaying = false
     @State private var isShowingStoryPicker = false
+    @State private var isShowingStory = false
+    @State private var shouldOpenStoryAfterLoad = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             NavigationStack {
-                Group {
-                    switch store.state {
-                    case .idle, .loading:
-                        ProgressView("Loading Story…")
-                    case let .loaded(document):
-                        StoryRendererView(document: document, playbackController: playbackController)
-                            .padding(.bottom, playbackController.shouldShowPlaybackBar ? 92 : 0)
-                    case let .failed(message):
-                        ContentUnavailableView(
-                            "Unable to Load Story",
-                            systemImage: "exclamationmark.triangle",
-                            description: Text(message),
-                        )
+                StoryLaunchView(
+                    store: store,
+                    onOpenStory: openStory,
+                    onPickStory: { isShowingStoryPicker = true },
+                )
+                .safeAreaInset(edge: .bottom) {
+                    if playbackController.shouldShowPlaybackBar {
+                        Color.clear.frame(height: 92)
                     }
                 }
-                .navigationTitle("Music Stories")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            isShowingStoryPicker = true
-                        } label: {
-                            Label("Open Story", systemImage: "folder")
-                        }
+                .navigationDestination(isPresented: $isShowingStory) {
+                    if let document = loadedDocument {
+                        StoryDetailView(document: document, playbackController: playbackController)
+                    } else {
+                        StoryUnavailableView()
                     }
                 }
             }
@@ -64,16 +58,75 @@ struct StoryRootView: View {
             switch result {
             case let .success(urls):
                 if let url = urls.first {
+                    shouldOpenStoryAfterLoad = true
                     store.loadStory(from: url)
                 }
             case let .failure(error):
                 store.handleLoadError(error.localizedDescription)
             }
         }
+        .onChange(of: store.state) { newState in
+            handleStoryStateChange(newState)
+        }
         .task {
             store.loadBundledSampleIfAvailable()
         }
         .animation(.easeInOut(duration: 0.2), value: playbackController.shouldShowPlaybackBar)
+    }
+
+    private var loadedDocument: StoryDocument? {
+        guard case let .loaded(document) = store.state else {
+            return nil
+        }
+        return document
+    }
+
+    private func openStory() {
+        guard loadedDocument != nil else {
+            return
+        }
+        isShowingStory = true
+    }
+
+    private func handleStoryStateChange(_ state: StoryLoadState) {
+        guard shouldOpenStoryAfterLoad else {
+            return
+        }
+        switch state {
+        case .loaded:
+            isShowingStory = true
+            shouldOpenStoryAfterLoad = false
+        case .failed:
+            shouldOpenStoryAfterLoad = false
+        case .idle, .loading:
+            break
+        }
+    }
+}
+
+private struct StoryDetailView: View {
+    let document: StoryDocument
+    @ObservedObject var playbackController: AppleMusicPlaybackController
+
+    var body: some View {
+        StoryRendererView(document: document, playbackController: playbackController)
+            .padding(.bottom, playbackController.shouldShowPlaybackBar ? 92 : 0)
+            .navigationTitle(document.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.visible, for: .navigationBar)
+    }
+}
+
+private struct StoryUnavailableView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "Story Unavailable",
+            systemImage: "exclamationmark.triangle",
+            description: Text("Return to the launch screen to choose a story."),
+        )
+        .navigationTitle("Story")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 }
 
