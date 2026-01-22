@@ -1,35 +1,24 @@
 import Combine
 import Foundation
 
-enum StoryLoadState {
+enum StoryLoadState: Equatable {
     case idle
     case loading
     case loaded(StoryDocument)
     case failed(String)
 }
 
-enum RemoteStoryLoadError: LocalizedError {
-    case invalidScheme
-    case invalidExtension
-    case invalidResponse
-    case invalidStatusCode(Int)
-    case emptyResponse
-    case unreadableStory
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidScheme:
-            "Story URLs must use http or https."
-        case .invalidExtension:
-            "Story URLs must point to a .mdx file."
-        case .invalidResponse:
-            "The server response was invalid."
-        case let .invalidStatusCode(code):
-            "The server returned status code \(code)."
-        case .emptyResponse:
-            "The story download was empty."
-        case .unreadableStory:
-            "Unable to read the downloaded story."
+extension StoryLoadState {
+    static func == (lhs: StoryLoadState, rhs: StoryLoadState) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle), (.loading, .loading):
+            return true
+        case let (.loaded(lhsDocument), .loaded(rhsDocument)):
+            return lhsDocument.id == rhsDocument.id
+        case let (.failed(lhsMessage), .failed(rhsMessage)):
+            return lhsMessage == rhsMessage
+        default:
+            return false
         }
     }
 }
@@ -41,13 +30,19 @@ final class StoryDocumentStore: ObservableObject {
 
     private let loader: StoryPackageLoading
     private let parser: StoryParser
+    private let remoteLoader: RemoteStoryPackageLoading
     private var hasLoadedSample = false
     private var activeSecurityScopedURL: URL?
     private var hasSecurityScopedAccess = false
 
-    init(loader: StoryPackageLoading = StoryPackageLoader(), parser: StoryParser = StoryParser()) {
+    init(
+        loader: StoryPackageLoading = StoryPackageLoader(),
+        parser: StoryParser = StoryParser(),
+        remoteLoader: RemoteStoryPackageLoading = RemoteStoryPackageLoader(),
+    ) {
         self.loader = loader
         self.parser = parser
+        self.remoteLoader = remoteLoader
     }
 
     @MainActor
@@ -77,7 +72,7 @@ final class StoryDocumentStore: ObservableObject {
         diagnostics = []
         clearSecurityScopedAccess()
         do {
-            let package = try await fetchRemotePackage(from: url)
+            let package = try await remoteLoader.loadStory(from: url)
             let parsed = parser.parse(package: package)
             diagnostics = parsed.diagnostics
             if let document = parsed.document {
@@ -128,30 +123,6 @@ final class StoryDocumentStore: ObservableObject {
             }
             activeSecurityScopedURL = url
         #endif
-    }
-
-    private func fetchRemotePackage(from url: URL) async throws -> StoryPackage {
-        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
-            throw RemoteStoryLoadError.invalidScheme
-        }
-        guard url.pathExtension.lowercased() == "mdx" else {
-            throw RemoteStoryLoadError.invalidExtension
-        }
-        let (data, response) = try await URLSession.shared.data(from: url)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw RemoteStoryLoadError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw RemoteStoryLoadError.invalidStatusCode(httpResponse.statusCode)
-        }
-        guard data.isEmpty == false else {
-            throw RemoteStoryLoadError.emptyResponse
-        }
-        guard let storyText = String(data: data, encoding: .utf8) else {
-            throw RemoteStoryLoadError.unreadableStory
-        }
-        let assetBaseURL = url.deletingLastPathComponent()
-        return StoryPackage(storyURL: url, storyText: storyText, assetBaseURL: assetBaseURL)
     }
 
     private func clearSecurityScopedAccess() {
