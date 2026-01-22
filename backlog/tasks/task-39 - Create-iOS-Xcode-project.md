@@ -1,9 +1,10 @@
 ---
-id: task-39
+id: TASK-39
 title: Create iOS Xcode project
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 02:58'
+updated_date: '2026-01-22 21:05'
 labels:
   - macOS
 dependencies: []
@@ -22,3 +23,9 @@ Create an Xcode project/workspace under ios/MusicStoryRenderer and wire the app 
 - Add App, Models, Rendering, Playback sources plus StoryDocumentStore.swift, StoryPackageLoader.swift, and StoryParser.swift to the app target.
 - Ensure App/MusicStoryRendererApp.swift is the entry point.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Verified ios/MusicStoryRenderer/MusicStoryRenderer.xcodeproj exists with App entry point and sources wired under ios/MusicStoryRenderer.
+<!-- SECTION:NOTES:END -->

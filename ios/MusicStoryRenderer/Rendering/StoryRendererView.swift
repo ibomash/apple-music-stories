@@ -16,6 +16,7 @@ struct StoryRendererView: View {
                     )
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
             .padding(.vertical, 32)
         }
@@ -28,6 +29,7 @@ struct StoryHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             StoryHeroImageView(heroImage: document.heroImage)
+                .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 8) {
                 Text(document.title)
                     .font(.largeTitle.bold())
@@ -65,6 +67,8 @@ struct StoryHeroImageView: View {
                 } placeholder: {
                     heroFallback
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             } else {
                 heroFallback
             }
@@ -78,7 +82,7 @@ struct StoryHeroImageView: View {
                     .padding(12)
             }
         }
-        .frame(height: 260)
+        .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 260)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .accessibilityLabel(heroImage?.altText ?? "Story hero image")
     }
@@ -89,6 +93,7 @@ struct StoryHeroImageView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing,
         )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

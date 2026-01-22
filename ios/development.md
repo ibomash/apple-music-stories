@@ -53,6 +53,25 @@ ios/MusicStoryRenderer/
    XcodeBuildMCP_launch_app_sim bundleId="BUNDLE_ID_FROM_GET_APP_BUNDLE_ID"
    ```
 
+### Simulator alignment checks
+
+Use this when validating story layout width and hero image alignment.
+
+1. Build and run on the current simulator:
+   ```
+   XcodeBuildMCP_build_run_sim
+   ```
+2. Open the story URL from the landing screen:
+   - Call `XcodeBuildMCP_describe_ui` to find the `Load from URL` button frame.
+   - Tap the `Load from URL` button with `XcodeBuildMCP_tap`.
+   - Call `XcodeBuildMCP_describe_ui` again to get the text field frame.
+   - Tap the text field center and type the URL (for example `https://bomash.net/story.mdx`).
+   - Tap the `Load Story` button.
+3. Validate alignment in the story view:
+   - Call `XcodeBuildMCP_describe_ui` and note the top-level app frame width.
+   - Look for the hero image/artwork element and confirm its `x` position is not negative and its width does not exceed the screen width.
+   - Optionally capture a screenshot with `XcodeBuildMCP_screenshot` for visual confirmation.
+
 ### Key Files
 
 | File | Purpose |
