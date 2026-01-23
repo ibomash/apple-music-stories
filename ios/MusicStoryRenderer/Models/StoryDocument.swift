@@ -15,9 +15,9 @@ struct StoryDocument: Identifiable {
     let media: [StoryMediaReference]
 
     var mediaByKey: [String: StoryMediaReference] {
-        Dictionary(uniqueKeysWithValues: media.map { reference in
+        Dictionary(media.map { reference in
             (reference.key, reference)
-        })
+        }, uniquingKeysWith: { existing, _ in existing })
     }
 
     static func sample() -> StoryDocument {

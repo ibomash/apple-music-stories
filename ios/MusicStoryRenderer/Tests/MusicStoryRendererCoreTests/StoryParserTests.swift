@@ -75,8 +75,44 @@ final class StoryParserTests: XCTestCase {
         XCTAssertTrue(parsed.diagnostics.contains { $0.code == "text_outside_section" })
     }
 
-    private func makeStory(body: String) -> String {
+    func testReportsDuplicateMediaKeys() {
+        let story = makeStory(
+            body: """
+            <Section id=\"intro\" title=\"Intro\" layout=\"lede\">
+            Hello.
+
+            <MediaRef ref=\"trk-1\" intent=\"preview\" />
+            </Section>
+            """,
+            media: """
+              - key: trk-1
+                type: track
+                apple_music_id: "123"
+                title: "Song"
+                artist: "Artist"
+              - key: trk-1
+                type: track
+                apple_music_id: "456"
+                title: "Song Two"
+                artist: "Artist Two"
+            """,
+        )
+
+        let parsed = StoryParser().parse(storyText: story, assetBaseURL: nil)
+
+        XCTAssertNil(parsed.document)
+        XCTAssertTrue(parsed.diagnostics.contains { $0.code == "duplicate_media_key" })
+    }
+
+    private func makeStory(body: String, media: String? = nil) -> String {
+        let mediaBlock = media ?? """
+          - key: trk-1
+            type: track
+            apple_music_id: "123"
+            title: "Song"
+            artist: "Artist"
         """
+        return """
         ---
         schema_version: 0.1
         id: "sample-story"
@@ -87,11 +123,7 @@ final class StoryParserTests: XCTestCase {
           - id: intro
             title: "Intro"
         media:
-          - key: trk-1
-            type: track
-            apple_music_id: "123"
-            title: "Song"
-            artist: "Artist"
+        \(mediaBlock)
         ---
         \(body)
         """

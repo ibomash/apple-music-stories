@@ -222,6 +222,7 @@ struct StoryParser {
     ) -> [StoryMediaReference] {
         let mediaEntries = values["media"] as? [[String: String]] ?? []
         var mediaReferences: [StoryMediaReference] = []
+        var seenKeys = Set<String>()
         for entry in mediaEntries {
             guard let key = entry["key"],
                   let typeValue = entry["type"],
@@ -236,6 +237,12 @@ struct StoryParser {
                 ))
                 continue
             }
+
+            if seenKeys.contains(key) {
+                diagnostics.append(.error(code: "duplicate_media_key", message: "Duplicate media key '\(key)'."))
+                continue
+            }
+            seenKeys.insert(key)
 
             let artworkURL = resolver.resolveURL(from: entry["artwork_url"])
             let duration = entry["duration_ms"].flatMap { Int($0) }

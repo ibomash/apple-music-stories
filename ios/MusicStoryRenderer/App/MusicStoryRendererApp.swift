@@ -266,35 +266,34 @@ private struct PlaybackBarView: View {
                 PlaybackAuthorizationBanner(controller: controller)
             }
 
-            Button(action: onExpand) {
-                HStack(spacing: 12) {
-                    NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL, size: 56)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(controller.displayMetadata?.title ?? "Nothing queued")
-                            .font(.subheadline.bold())
-                            .lineLimit(1)
-                        Text(controller.displayMetadata?.subtitle ?? "Tap to browse")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                    Button {
-                        controller.togglePlayPause()
-                    } label: {
-                        Image(systemName: controller.playbackState.actionSymbolName)
-                            .font(.title3.bold())
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(controller.authorizationStatus.requiresAuthorization)
+            HStack(spacing: 12) {
+                NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL, size: 56)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(controller.displayMetadata?.title ?? "Nothing queued")
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                    Text(controller.displayMetadata?.subtitle ?? "Tap to browse")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+                Spacer(minLength: 0)
+                Button {
+                    controller.togglePlayPause()
+                } label: {
+                    Image(systemName: controller.playbackState.actionSymbolName)
+                        .font(.title3.bold())
+                }
+                .buttonStyle(.bordered)
+                .disabled(controller.authorizationStatus.requiresAuthorization)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+            .contentShape(RoundedRectangle(cornerRadius: 20))
+            .onTapGesture(perform: onExpand)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
