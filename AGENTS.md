@@ -14,6 +14,8 @@ This project uses the labels: (to come)
 
 This project uses Python 3.13 and Swift 6.2.
 
+Always write and run relevant tests for changes. If tests cannot run in the current environment, note the blocker in your final update.
+
 ## Story Authoring
 
 Use `AGENTS-authoring.md` for the authoring-only prompt and guidance.

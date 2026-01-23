@@ -1,0 +1,78 @@
+name: MusicStoryRenderer
+
+options:
+  bundleIdPrefix: net.bomash.illya
+
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+
+targets:
+  MusicStoryRendererCore:
+    type: framework
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Models
+      - StoryParser.swift
+      - StoryPackageLoader.swift
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        GENERATE_INFOPLIST_FILE: YES
+
+  MusicStoryRenderer:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: App
+      - path: Models
+      - path: Playback
+      - path: Rendering
+      - StoryParser.swift
+      - StoryPackageLoader.swift
+      - StoryDocumentStore.swift
+      - StoryPersistence.swift
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        INFOPLIST_FILE: Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: net.bomash.illya.MusicStories
+        CODE_SIGN_ENTITLEMENTS: App/MusicStoryRenderer.entitlements
+
+  MusicStoryRendererCoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Tests/MusicStoryRendererCoreTests
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MusicStoryRendererCore
+
+  MusicStoryRendererTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Tests/MusicStoryRendererTests
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MusicStoryRenderer
+
+schemes:
+  MusicStoryRenderer:
+    build:
+      targets:
+        MusicStoryRenderer: all
+    test:
+      targets:
+        - MusicStoryRendererCoreTests
+        - MusicStoryRendererTests

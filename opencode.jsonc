@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "apple_docs": {
+      "type": "local",
+      "command": ["npx", "-y", "apple-doc-mcp-server@latest"],
+      "enabled": true
+    },
+    "XcodeBuildMCP": {
+      "type": "local",
+      "command": ["npx", "-y", "xcodebuildmcp@latest"],
+      "enabled": true
+    }
+  }
+}

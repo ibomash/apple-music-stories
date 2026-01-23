@@ -1,0 +1,37 @@
+# SwiftLint configuration for MusicStoryRenderer
+
+disabled_rules:
+  - line_length
+  - trailing_whitespace
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - explicit_init
+
+excluded:
+  - .build
+  - Tests
+
+line_length:
+  warning: 120
+  error: 200
+
+cyclomatic_complexity:
+  warning: 15
+  error: 20
+
+function_body_length:
+  warning: 120
+  error: 200
+
+type_body_length:
+  warning: 500
+  error: 700
+
+file_length:
+  warning: 900
+  error: 1200
+
+trailing_comma:
+  mandatory_comma: true

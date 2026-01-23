@@ -1,0 +1,14 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Local secrets
+LocalSecrets.xcconfig
+
+# macOS metadata
+.DS_Store
+
+# XcodeGen output
+ios/MusicStoryRenderer/*.xcodeproj
+ios/MusicStoryRenderer/*.xcworkspace
+ios/MusicStoryRenderer/Config/Signing.xcconfig
