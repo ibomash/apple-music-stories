@@ -401,6 +401,7 @@ class StoryMedia:
     title: str
     artist: str
     artwork_url: str | None
+    apple_music_url: str | None
 
 
 @dataclass(frozen=True)
@@ -498,6 +499,7 @@ def build_media_lookup(raw_media: list[dict[str, Any]]) -> dict[str, StoryMedia]
             title=str(item.get("title", "")),
             artist=str(item.get("artist", "")),
             artwork_url=item.get("artwork_url"),
+            apple_music_url=item.get("apple_music_url"),
         )
     return lookup
 
@@ -507,28 +509,28 @@ def render_media_card(
 ) -> str:
     if media is None:
         return (
-            "<div class=\"media-card missing\">"
-            f"<div class=\"media-meta\">Missing media reference: {html.escape(ref)}</div>"
+            '<div class="media-card missing">'
+            f'<div class="media-meta">Missing media reference: {html.escape(ref)}</div>'
             "</div>"
         )
 
     artwork_url = resolve_asset_url(media.artwork_url, asset_prefix)
     artwork_html = (
-        f"<img src=\"{html.escape(artwork_url)}\" alt=\"{html.escape(media.title)} artwork\">"
+        f'<img src="{html.escape(artwork_url)}" alt="{html.escape(media.title)} artwork">'
         if artwork_url
-        else "<img src=\"\" alt=\"\" style=\"opacity:0;\">"
+        else '<img src="" alt="" style="opacity:0;">'
     )
     apple_link = build_apple_music_link(media)
     return (
-        "<div class=\"media-card\" data-media-key=\"{key}\" data-media-type=\"{type}\" "
-        "data-apple-music-id=\"{id}\">"
+        '<div class="media-card" data-media-key="{key}" data-media-type="{type}" '
+        'data-apple-music-id="{id}">'
         "{artwork}"
-        "<div class=\"media-meta\">"
-        "<div class=\"media-title\">{title}</div>"
-        "<div class=\"media-artist\">{artist}</div>"
-        "<div class=\"media-controls\">"
-        "<button class=\"media-play\" data-action=\"play\">Play</button>"
-        "<a class=\"media-link\" href=\"{link}\" target=\"_blank\" rel=\"noopener\">"
+        '<div class="media-meta">'
+        '<div class="media-title">{title}</div>'
+        '<div class="media-artist">{artist}</div>'
+        '<div class="media-controls">'
+        '<button class="media-play" data-action="play">Play</button>'
+        '<a class="media-link" href="{link}" target="_blank" rel="noopener">'
         "Open in Apple Music"
         "</a>"
         "</div>"
@@ -546,6 +548,8 @@ def render_media_card(
 
 
 def build_apple_music_link(media: StoryMedia) -> str:
+    if media.apple_music_url:
+        return media.apple_music_url
     region = "us"
     type_map = {
         "track": "song",
@@ -579,7 +583,9 @@ def render_section_body(
     return "\n".join(parts)
 
 
-def parse_sections(body: str, section_meta: dict[str, dict[str, Any]]) -> list[StorySection]:
+def parse_sections(
+    body: str, section_meta: dict[str, dict[str, Any]]
+) -> list[StorySection]:
     sections: list[StorySection] = []
     for match in SECTION_RE.finditer(body):
         attrs = parse_attrs(match.group(1))
@@ -607,7 +613,10 @@ def validate_story_meta(meta: dict[str, Any]) -> list[str]:
     spec.loader.exec_module(module)
     validate = getattr(module, "validate_story", None)
     if callable(validate):
-        return list(validate(meta))
+        result = validate(meta)
+        if isinstance(result, Iterable):
+            return list(result)
+        return []
     return []
 
 
@@ -648,7 +657,9 @@ def discover_story_paths(paths: Iterable[str | pathlib.Path]) -> list[pathlib.Pa
     return discovered
 
 
-def build_story_index(paths: Iterable[str | pathlib.Path]) -> dict[str, StoryIndexEntry]:
+def build_story_index(
+    paths: Iterable[str | pathlib.Path],
+) -> dict[str, StoryIndexEntry]:
     entries: dict[str, StoryIndexEntry] = {}
     for story_path in discover_story_paths(paths):
         try:
@@ -676,29 +687,33 @@ def render_index_html(entries: dict[str, StoryIndexEntry]) -> str:
     for entry in sorted(entries.values(), key=lambda item: item.title.lower()):
         hero_src = resolve_asset_url(entry.hero_src, f"/assets/{entry.id}")
         if hero_src:
-            hero_html = f"<img src=\"{html.escape(hero_src)}\" alt=\"{html.escape(entry.title)}\">"
+            hero_html = (
+                f'<img src="{html.escape(hero_src)}" alt="{html.escape(entry.title)}">'
+            )
         else:
-            hero_html = "<div class=\"story-card-placeholder\"></div>"
+            hero_html = '<div class="story-card-placeholder"></div>'
         subtitle_html = (
-            f"<div class=\"story-card-subtitle\">{html.escape(str(entry.subtitle))}</div>"
+            f'<div class="story-card-subtitle">{html.escape(str(entry.subtitle))}</div>'
             if entry.subtitle
             else ""
         )
         meta_parts = []
         if entry.authors:
-            meta_parts.append(", ".join(html.escape(author) for author in entry.authors))
+            meta_parts.append(
+                ", ".join(html.escape(author) for author in entry.authors)
+            )
         if entry.tags:
             meta_parts.append(", ".join(html.escape(tag) for tag in entry.tags[:3]))
         meta_html = (
-            f"<div class=\"story-card-meta\">{' · '.join(meta_parts)}</div>"
+            f'<div class="story-card-meta">{" · ".join(meta_parts)}</div>'
             if meta_parts
             else ""
         )
         cards.append(
-            "<a class=\"story-card\" href=\"/stories/{id}\">"
+            '<a class="story-card" href="/stories/{id}">'
             "{hero}"
-            "<div class=\"story-card-body\">"
-            "<div class=\"story-card-title\">{title}</div>"
+            '<div class="story-card-body">'
+            '<div class="story-card-title">{title}</div>'
             "{subtitle}"
             "{meta}"
             "</div>"
@@ -713,23 +728,23 @@ def render_index_html(entries: dict[str, StoryIndexEntry]) -> str:
 
     return (
         "<!doctype html>"
-        "<html lang=\"en\">"
+        '<html lang="en">'
         "<head>"
-        "<meta charset=\"utf-8\">"
-        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         "<title>Apple Music Stories</title>"
         "<style>"
         f"{INDEX_CSS}"
         "</style>"
         "</head>"
         "<body>"
-        "<header class=\"index-hero\">"
-        "<div class=\"index-title\">Apple Music Stories</div>"
-        "<div class=\"index-subtitle\">"
+        '<header class="index-hero">'
+        '<div class="index-title">Apple Music Stories</div>'
+        '<div class="index-subtitle">'
         "Browse available stories and launch the renderer with MusicKit playback."
         "</div>"
         "</header>"
-        "<section class=\"story-grid\">"
+        '<section class="story-grid">'
         f"{''.join(cards)}"
         "</section>"
         "</body>"
@@ -759,9 +774,9 @@ def render_story_html(
             classes.append(section.layout)
         layout_class = " ".join(classes)
         sections_html.append(
-            "<section class=\"{layout}\">"
-            "<h2 class=\"section-header\">{title}</h2>"
-            "<div class=\"section-body\">{body}</div>"
+            '<section class="{layout}">'
+            '<h2 class="section-header">{title}</h2>'
+            '<div class="section-body">{body}</div>'
             "</section>".format(
                 layout=html.escape(layout_class),
                 title=html.escape(section.title or ""),
@@ -772,15 +787,17 @@ def render_story_html(
     hero_block = ""
     if hero_src:
         hero_block = (
-            "<div class=\"hero-image\">"
-            f"<img src=\"{html.escape(hero_src)}\" alt=\"{hero_alt}\">"
+            '<div class="hero-image">'
+            f'<img src="{html.escape(hero_src)}" alt="{hero_alt}">'
             "</div>"
         )
         if hero_credit:
-            hero_block += f"<div class=\"hero-credit\">{html.escape(str(hero_credit))}</div>"
+            hero_block += (
+                f'<div class="hero-credit">{html.escape(str(hero_credit))}</div>'
+            )
 
     subtitle_html = (
-        f"<div class=\"subtitle\">{html.escape(str(subtitle))}</div>" if subtitle else ""
+        f'<div class="subtitle">{html.escape(str(subtitle))}</div>' if subtitle else ""
     )
 
     byline_parts: list[str] = []
@@ -789,7 +806,7 @@ def render_story_html(
     if publish_date:
         byline_parts.append(publish_date)
     byline = " · ".join(byline_parts)
-    byline_html = f"<div class=\"meta\">{byline}</div>" if byline else ""
+    byline_html = f'<div class="meta">{byline}</div>' if byline else ""
 
     media_payload = [
         {
@@ -804,40 +821,40 @@ def render_story_html(
     ]
     media_json = json.dumps(media_payload).replace("</", "<\\/")
     media_json_tag = (
-        f"<script type=\"application/json\" id=\"story-media-data\">{media_json}</script>"
+        f'<script type="application/json" id="story-media-data">{media_json}</script>'
     )
     playback_bar = (
-        "<div class=\"playback-bar\" data-playback-bar>"
-        "<div class=\"playback-main\">"
-        "<div class=\"playback-artwork\">"
-        "<img data-playback-artwork alt=\"\">"
+        '<div class="playback-bar" data-playback-bar>'
+        '<div class="playback-main">'
+        '<div class="playback-artwork">'
+        '<img data-playback-artwork alt="">'
         "</div>"
-        "<div class=\"playback-meta\">"
-        "<div class=\"playback-title\" data-playback-title>Nothing playing</div>"
-        "<div class=\"playback-artist\" data-playback-artist></div>"
+        '<div class="playback-meta">'
+        '<div class="playback-title" data-playback-title>Nothing playing</div>'
+        '<div class="playback-artist" data-playback-artist></div>'
         "</div>"
         "</div>"
-        "<div class=\"playback-progress\">"
-        "<input class=\"playback-range\" type=\"range\" min=\"0\" max=\"1\" value=\"0\" step=\"0.1\" data-playback-range disabled>"
-        "<div class=\"playback-time\" data-playback-time>0:00 / 0:00</div>"
+        '<div class="playback-progress">'
+        '<input class="playback-range" type="range" min="0" max="1" value="0" step="0.1" data-playback-range disabled>'
+        '<div class="playback-time" data-playback-time>0:00 / 0:00</div>'
         "</div>"
-        "<div class=\"playback-controls\">"
-        "<button class=\"playback-button\" data-action=\"prev\" disabled>Prev</button>"
-        "<button class=\"playback-button\" data-action=\"toggle\" disabled>Play</button>"
-        "<button class=\"playback-button\" data-action=\"next\" disabled>Next</button>"
+        '<div class="playback-controls">'
+        '<button class="playback-button" data-action="prev" disabled>Prev</button>'
+        '<button class="playback-button" data-action="toggle" disabled>Play</button>'
+        '<button class="playback-button" data-action="next" disabled>Next</button>'
         "</div>"
         "</div>"
     )
 
     auth_banner = (
-        "<div class=\"auth-banner\" data-auth-banner>"
-        "<div class=\"auth-status\" data-auth-status>Initializing playback…</div>"
-        "<button class=\"auth-button\" data-action=\"authorize\" disabled>Authorize</button>"
+        '<div class="auth-banner" data-auth-banner>'
+        '<div class="auth-status" data-auth-status>Initializing playback…</div>'
+        '<button class="auth-button" data-action="authorize" disabled>Authorize</button>'
         "</div>"
     )
     token_meta = (
-        "<meta name=\"apple-music-developer-token\" content=\"{token}\">"
-        "<meta name=\"apple-music-has-token\" content=\"{has_token}\">"
+        '<meta name="apple-music-developer-token" content="{token}">'
+        '<meta name="apple-music-has-token" content="{has_token}">'
     ).format(token=html.escape(developer_token), has_token=str(has_token).lower())
     script_lines = [
         "<script>",
@@ -1063,27 +1080,27 @@ def render_story_html(
 
     return (
         "<!doctype html>"
-        "<html lang=\"en\">"
+        '<html lang="en">'
         "<head>"
-        "<meta charset=\"utf-8\">"
-        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f"<title>{title}</title>"
         f"{token_meta}"
-        "<script src=\"https://js-cdn.music.apple.com/musickit/v1/musickit.js\"></script>"
+        '<script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>'
         "<style>"
         f"{BASE_CSS}"
         "</style>"
         "</head>"
         "<body>"
-        "<header class=\"hero\">"
-        "<div class=\"meta\">Music Story</div>"
-        f"<h1 class=\"title\">{title}</h1>"
+        '<header class="hero">'
+        '<div class="meta">Music Story</div>'
+        f'<h1 class="title">{title}</h1>'
         f"{subtitle_html}"
         f"{byline_html}"
         f"{hero_block}"
         f"{auth_banner}"
         "</header>"
-        "<main class=\"container\">"
+        '<main class="container">'
         f"{''.join(sections_html)}"
         "</main>"
         f"{media_json_tag}"
@@ -1165,9 +1182,7 @@ def make_story_handler(
             self.send_html(f"<h1>404</h1><p>{html.escape(message)}</p>", status=404)
 
         def send_server_error(self, message: str) -> None:
-            self.send_html(
-                f"<h1>500</h1><p>{html.escape(message)}</p>", status=500
-            )
+            self.send_html(f"<h1>500</h1><p>{html.escape(message)}</p>", status=500)
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
             return
