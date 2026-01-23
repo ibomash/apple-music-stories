@@ -174,6 +174,17 @@ final class StoryDocumentStore: ObservableObject {
         refreshAvailableStories()
     }
 
+    func deleteStory(_ item: StoryLaunchItem) {
+        switch item.source {
+        case .bundled:
+            return
+        case .savedRemote:
+            deletePersistedStory()
+        case .recentLocal:
+            deleteRecentLocalStory(item)
+        }
+    }
+
     func loadBundledSampleIfAvailable(name: String = "sample-story") {
         guard hasLoadedSample == false else {
             return
@@ -261,6 +272,13 @@ final class StoryDocumentStore: ObservableObject {
             }
             loadStory(from: resolvedURL)
         }
+    }
+
+    func isCurrentStory(_ item: StoryLaunchItem) -> Bool {
+        guard case let .loaded(document) = state else {
+            return false
+        }
+        return document.id == item.metadata.id
     }
 
     private func startSecurityScopedAccess(for url: URL) {
@@ -417,6 +435,32 @@ final class StoryDocumentStore: ObservableObject {
             entries = Array(entries.prefix(maxEntries))
         }
         try? recentLocalStoryStore.save(entries)
+    }
+
+    private func deleteRecentLocalStory(_ item: StoryLaunchItem) {
+        guard let sourceURL = item.sourceURL else {
+            diagnostics = [
+                .warning(
+                    code: "recent_story_delete_failed",
+                    message: "Unable to delete the recent story. Try again.",
+                ),
+            ]
+            return
+        }
+        do {
+            var entries = try recentLocalStoryStore.load()
+            entries.removeAll { $0.sourceURL == sourceURL }
+            try recentLocalStoryStore.save(entries)
+        } catch {
+            diagnostics = [
+                .warning(
+                    code: "recent_story_delete_failed",
+                    message: "Unable to delete the recent story. Try again.",
+                ),
+            ]
+            return
+        }
+        refreshAvailableStories()
     }
 
     private func resolveBookmarkURL(sourceURL: URL?, bookmarkData: Data?) -> URL? {

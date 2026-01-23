@@ -98,6 +98,65 @@ final class StoryDocumentStoreTests: XCTestCase {
         XCTAssertEqual(document.id, "sample-story")
     }
 
+    func testIsCurrentStoryMatchesLoadedStory() async {
+        let url = URL(string: "https://example.com/story.mdx")!
+        let storyText = makeStory(body: "<Section id=\"intro\" title=\"Intro\">Hello.</Section>")
+        let package = StoryPackage(
+            storyURL: url,
+            storyText: storyText,
+            assetBaseURL: url.deletingLastPathComponent(),
+        )
+        let store = await MainActor.run {
+            StoryDocumentStore(remoteLoader: MockRemoteLoader { _ in package })
+        }
+
+        await store.loadRemoteStory(from: url)
+
+        let state = await store.state
+        guard case let .loaded(document) = state else {
+            return XCTFail("Expected loaded state")
+        }
+        let item = StoryLaunchItem(
+            id: "saved:\(url.absoluteString)",
+            metadata: StoryMetadataSnapshot(document: document),
+            source: .savedRemote,
+            sourceURL: url,
+            bookmarkData: nil,
+            lastOpened: nil,
+        )
+
+        let isCurrent = await store.isCurrentStory(item)
+        XCTAssertTrue(isCurrent)
+    }
+
+    func testIsCurrentStoryRejectsDifferentStory() async {
+        let url = URL(string: "https://example.com/story.mdx")!
+        let storyText = makeStory(body: "<Section id=\"intro\" title=\"Intro\">Hello.</Section>")
+        let package = StoryPackage(
+            storyURL: url,
+            storyText: storyText,
+            assetBaseURL: url.deletingLastPathComponent(),
+        )
+        let store = await MainActor.run {
+            StoryDocumentStore(remoteLoader: MockRemoteLoader { _ in package })
+        }
+
+        await store.loadRemoteStory(from: url)
+
+        let otherDocument = StoryDocument.sample()
+        let otherItem = StoryLaunchItem(
+            id: "saved:other",
+            metadata: StoryMetadataSnapshot(document: otherDocument),
+            source: .savedRemote,
+            sourceURL: URL(string: "https://example.com/other.mdx"),
+            bookmarkData: nil,
+            lastOpened: nil,
+        )
+
+        let isCurrent = await store.isCurrentStory(otherItem)
+        XCTAssertFalse(isCurrent)
+    }
+
     func testDeletePersistedStoryClearsState() async {
         let url = URL(string: "https://example.com/story.mdx")!
         let persistedStory = PersistedRemoteStory(
@@ -215,6 +274,46 @@ final class StoryDocumentStoreTests: XCTestCase {
 
         let stories = await store.availableStories
         XCTAssertEqual(stories.map { $0.metadata.id }, ["local-story", "remote-story", "bundled-story"])
+    }
+
+    func testDeleteRecentLocalStoryRemovesFromAvailableStories() async {
+        let bundleRoot = makeTemporaryBundleRoot()
+        defer { try? FileManager.default.removeItem(at: bundleRoot) }
+        let localURL = bundleRoot.appendingPathComponent("local-story.mdx")
+        XCTAssertNoThrow(try makeStoryFile(at: localURL, id: "local-story"))
+        let localStoryText = try? String(contentsOf: localURL, encoding: .utf8)
+        let localParsed = StoryParser().parse(storyText: localStoryText ?? "", assetBaseURL: bundleRoot)
+        guard let localDocument = localParsed.document else {
+            return XCTFail("Expected local story document")
+        }
+        let localBookmark = try? localURL.bookmarkData()
+        XCTAssertNotNil(localBookmark)
+        let localEntry = RecentLocalStory(
+            sourceURL: localURL,
+            bookmarkData: localBookmark ?? Data(),
+            metadata: StoryMetadataSnapshot(document: localDocument),
+            lastOpened: Date(),
+        )
+        let recentStore = MemoryRecentLocalStoryStore(entries: [localEntry])
+        let store = await MainActor.run {
+            StoryDocumentStore(
+                persistedStoryStore: MemoryPersistedStoryStore(),
+                recentLocalStoryStore: recentStore,
+                recencyStore: MemoryStoryRecencyStore(),
+                bundleResourceURL: bundleRoot,
+            )
+        }
+        let stories = await store.availableStories
+        guard let storyToDelete = stories.first else {
+            return XCTFail("Expected story to delete")
+        }
+
+        await MainActor.run {
+            store.deleteStory(storyToDelete)
+        }
+
+        let updatedStories = await store.availableStories
+        XCTAssertTrue(updatedStories.isEmpty)
     }
 
     private func makeStory(id: String = "sample-story", body: String) -> String {

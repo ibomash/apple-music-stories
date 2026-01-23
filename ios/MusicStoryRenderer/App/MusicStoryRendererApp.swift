@@ -34,6 +34,7 @@ struct StoryRootView: View {
                     onPickStory: { isShowingStoryPicker = true },
                     onLoadStoryURL: { isShowingURLPrompt = true },
                     onDeleteStory: store.deletePersistedStory,
+                    onDeleteCatalogStory: store.deleteStory,
                 )
                 .safeAreaInset(edge: .bottom) {
                     if playbackController.shouldShowPlaybackBar {
@@ -127,6 +128,11 @@ struct StoryRootView: View {
     }
 
     private func openStoryFromCatalog(_ item: StoryLaunchItem) {
+        if store.isCurrentStory(item) {
+            shouldOpenStoryAfterLoad = false
+            isShowingStory = true
+            return
+        }
         shouldOpenStoryAfterLoad = true
         store.loadStory(from: item)
     }

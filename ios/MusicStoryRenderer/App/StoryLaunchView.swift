@@ -8,6 +8,7 @@ struct StoryLaunchView: View {
     let onPickStory: () -> Void
     let onLoadStoryURL: () -> Void
     let onDeleteStory: () -> Void
+    let onDeleteCatalogStory: (StoryLaunchItem) -> Void
 
     var body: some View {
         ZStack {
@@ -22,7 +23,11 @@ struct StoryLaunchView: View {
                         onOpenStory: onOpenStory,
                         onDeleteStory: onDeleteStory,
                     )
-                    StoryCatalogSection(stories: availableStories, onSelectStory: onSelectStory)
+                    StoryCatalogSection(
+                        stories: availableStories,
+                        onSelectStory: onSelectStory,
+                        onDeleteStory: onDeleteCatalogStory,
+                    )
                     StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
                     if store.diagnostics.isEmpty == false {
                         StoryDiagnosticsSection(diagnostics: store.diagnostics)
@@ -118,6 +123,8 @@ private struct StoryStatusSection: View {
 private struct StoryCatalogSection: View {
     let stories: [StoryLaunchItem]
     let onSelectStory: (StoryLaunchItem) -> Void
+    let onDeleteStory: (StoryLaunchItem) -> Void
+    @State private var pendingDelete: StoryLaunchItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -134,9 +141,56 @@ private struct StoryCatalogSection: View {
                             StoryCatalogCard(item: item)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            if canDelete(item) {
+                                Button(role: .destructive) {
+                                    pendingDelete = item
+                                } label: {
+                                    Label("Delete Story", systemImage: "trash")
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+        .confirmationDialog(
+            "Delete story?",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { isPresented in
+                    if isPresented == false {
+                        pendingDelete = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible,
+        ) {
+            if let pendingDelete {
+                Button("Delete Story", role: .destructive) {
+                    onDeleteStory(pendingDelete)
+                    self.pendingDelete = nil
+                }
+            }
+        } message: {
+            if let pendingDelete {
+                Text(deleteMessage(for: pendingDelete))
+            }
+        }
+    }
+
+    private func canDelete(_ item: StoryLaunchItem) -> Bool {
+        item.source != .bundled
+    }
+
+    private func deleteMessage(for item: StoryLaunchItem) -> String {
+        switch item.source {
+        case .bundled:
+            return ""
+        case .savedRemote:
+            return "This removes the saved URL story from this device."
+        case .recentLocal:
+            return "This removes the story from your recent list."
         }
     }
 }
