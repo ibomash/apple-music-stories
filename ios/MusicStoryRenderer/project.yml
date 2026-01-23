@@ -38,6 +38,7 @@ targets:
         SWIFT_VERSION: 6.2
         INFOPLIST_FILE: Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: net.bomash.illya.MusicStories
+        CODE_SIGN_ENTITLEMENTS: App/MusicStoryRenderer.entitlements
 
   MusicStoryRendererCoreTests:
     type: bundle.unit-test
