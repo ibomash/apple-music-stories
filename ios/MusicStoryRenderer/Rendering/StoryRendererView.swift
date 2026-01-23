@@ -3,23 +3,87 @@ import SwiftUI
 struct StoryRendererView: View {
     let document: StoryDocument
     @ObservedObject var playbackController: AppleMusicPlaybackController
+    @State private var hasRestoredBookmark = false
+    @State private var isRestoringBookmark = false
+    @State private var lastAnchorID: String?
+    private let bookmarkStore = StoryBookmarkStore()
+    private let scrollSpaceName = "story-scroll"
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                StoryHeaderView(document: document)
-                ForEach(document.sections) { section in
-                    StorySectionView(
-                        section: section,
-                        mediaLookup: document.mediaByKey,
-                        playbackController: playbackController,
-                    )
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 32) {
+                    StoryHeaderView(document: document)
+                        .id(headerAnchorID)
+                        .storyScrollAnchor(id: headerAnchorID, in: scrollSpaceName)
+                    ForEach(document.sections) { section in
+                        StorySectionView(
+                            section: section,
+                            mediaLookup: document.mediaByKey,
+                            playbackController: playbackController,
+                            scrollSpaceName: scrollSpaceName,
+                        )
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 32)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 32)
+            .coordinateSpace(name: scrollSpaceName)
+            .onAppear {
+                restoreBookmarkIfNeeded(using: proxy)
+            }
+            .onPreferenceChange(StoryScrollAnchorPreferenceKey.self) { offsets in
+                storeBookmarkIfNeeded(offsets)
+            }
         }
+    }
+
+    private var headerAnchorID: String {
+        "story-header-\(document.id)"
+    }
+
+    private func restoreBookmarkIfNeeded(using proxy: ScrollViewProxy) {
+        guard !hasRestoredBookmark else {
+            return
+        }
+        guard let anchorID = bookmarkStore.loadAnchorID(for: document.id) else {
+            hasRestoredBookmark = true
+            return
+        }
+        isRestoringBookmark = true
+        DispatchQueue.main.async {
+            proxy.scrollTo(anchorID, anchor: .top)
+            DispatchQueue.main.async {
+                isRestoringBookmark = false
+                hasRestoredBookmark = true
+            }
+        }
+    }
+
+    private func storeBookmarkIfNeeded(_ offsets: [String: CGFloat]) {
+        guard hasRestoredBookmark else {
+            return
+        }
+        guard !isRestoringBookmark else {
+            return
+        }
+        guard let anchorID = resolveAnchorID(from: offsets) else {
+            return
+        }
+        guard anchorID != lastAnchorID else {
+            return
+        }
+        lastAnchorID = anchorID
+        bookmarkStore.saveAnchorID(anchorID, for: document.id)
+    }
+
+    private func resolveAnchorID(from offsets: [String: CGFloat]) -> String? {
+        let sanitized = offsets.filter { $0.value.isFinite }
+        if let nearestBelow = sanitized.filter({ $0.value >= 0 }).min(by: { $0.value < $1.value }) {
+            return nearestBelow.key
+        }
+        return sanitized.max(by: { $0.value < $1.value })?.key
     }
 }
 
@@ -101,6 +165,7 @@ struct StorySectionView: View {
     let section: StorySection
     let mediaLookup: [String: StoryMediaReference]
     let playbackController: AppleMusicPlaybackController
+    let scrollSpaceName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -116,9 +181,16 @@ struct StorySectionView: View {
                 }
             }
             ForEach(section.blocks) { block in
-                StoryBlockView(block: block, mediaLookup: mediaLookup, playbackController: playbackController)
+                StoryBlockView(
+                    block: block,
+                    mediaLookup: mediaLookup,
+                    playbackController: playbackController,
+                    scrollSpaceName: scrollSpaceName,
+                )
             }
         }
+        .id(section.id)
+        .storyScrollAnchor(id: section.id, in: scrollSpaceName)
     }
 }
 
@@ -126,20 +198,25 @@ struct StoryBlockView: View {
     let block: StoryBlock
     let mediaLookup: [String: StoryMediaReference]
     let playbackController: AppleMusicPlaybackController
+    let scrollSpaceName: String
 
     var body: some View {
-        switch block {
-        case let .paragraph(_, text):
-            Text(.init(text))
-                .font(.body)
-                .lineSpacing(6)
-        case let .media(_, referenceKey, intent):
-            if let media = mediaLookup[referenceKey] {
-                MediaReferenceView(media: media, intent: intent, playbackController: playbackController)
-            } else {
-                MissingMediaReferenceView(referenceKey: referenceKey)
+        Group {
+            switch block {
+            case let .paragraph(_, text):
+                Text(.init(text))
+                    .font(.body)
+                    .lineSpacing(6)
+            case let .media(_, referenceKey, intent):
+                if let media = mediaLookup[referenceKey] {
+                    MediaReferenceView(media: media, intent: intent, playbackController: playbackController)
+                } else {
+                    MissingMediaReferenceView(referenceKey: referenceKey)
+                }
             }
         }
+        .id(block.id)
+        .storyScrollAnchor(id: block.id, in: scrollSpaceName)
     }
 }
 
@@ -264,12 +341,66 @@ struct MediaStatusBadge: View {
     }
 }
 
+private struct StoryScrollAnchorPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] { [:] }
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct StoryScrollAnchorReporter: View {
+    let id: String
+    let scrollSpaceName: String
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .preference(
+                    key: StoryScrollAnchorPreferenceKey.self,
+                    value: [id: proxy.frame(in: .named(scrollSpaceName)).minY]
+                )
+        }
+    }
+}
+
+private extension View {
+    func storyScrollAnchor(id: String, in scrollSpaceName: String) -> some View {
+        background(StoryScrollAnchorReporter(id: id, scrollSpaceName: scrollSpaceName))
+    }
+}
+
 extension DateFormatter {
     static let storyDate: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter
     }()
+}
+
+struct StoryBookmarkStore {
+    private let defaults: UserDefaults
+    private let keyPrefix = "story-bookmark-anchor-id"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func loadAnchorID(for storyID: String) -> String? {
+        defaults.string(forKey: key(for: storyID))
+    }
+
+    func saveAnchorID(_ anchorID: String, for storyID: String) {
+        defaults.set(anchorID, forKey: key(for: storyID))
+    }
+
+    func clearAnchorID(for storyID: String) {
+        defaults.removeObject(forKey: key(for: storyID))
+    }
+
+    private func key(for storyID: String) -> String {
+        "\(keyPrefix).\(storyID)"
+    }
 }
 
 #Preview {
