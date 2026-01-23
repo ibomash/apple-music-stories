@@ -34,6 +34,20 @@ targets:
       - StoryPackageLoader.swift
       - StoryDocumentStore.swift
       - StoryPersistence.swift
+    resources:
+      - path: ../../stories
+        type: folder
+    postBuildScripts:
+      - name: Bundle Stories
+        script: |
+          set -euo pipefail
+          SOURCE_DIR="${SRCROOT}/../../stories"
+          DEST_DIR="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/stories"
+          if [ -d "${SOURCE_DIR}" ]; then
+            rm -rf "${DEST_DIR}"
+            mkdir -p "${DEST_DIR}"
+            rsync -a --delete "${SOURCE_DIR}/" "${DEST_DIR}/"
+          fi
     settings:
       base:
         SWIFT_VERSION: 6.2

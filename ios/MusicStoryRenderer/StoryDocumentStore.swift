@@ -30,11 +30,15 @@ final class StoryDocumentStore: ObservableObject {
     private(set) var persistedStoryURL: URL?
     @Published private(set) var hasPersistedStory = false
     @Published private(set) var isPersistedStoryActive = false
+    @Published private(set) var availableStories: [StoryLaunchItem] = []
 
     private let loader: StoryPackageLoading
     private let parser: StoryParser
     private let remoteLoader: RemoteStoryPackageLoading
     private let persistedStoryStore: PersistedRemoteStoryStoring
+    private let recentLocalStoryStore: RecentLocalStoryStoring
+    private let recencyStore: StoryRecencyStoring
+    private let bundleResourceURL: URL?
     private var hasLoadedSample = false
     private var activeSecurityScopedURL: URL?
     private var hasSecurityScopedAccess = false
@@ -44,11 +48,18 @@ final class StoryDocumentStore: ObservableObject {
         parser: StoryParser = StoryParser(),
         remoteLoader: RemoteStoryPackageLoading = RemoteStoryPackageLoader(),
         persistedStoryStore: PersistedRemoteStoryStoring = FilePersistedRemoteStoryStore(),
+        recentLocalStoryStore: RecentLocalStoryStoring = FileRecentLocalStoryStore(),
+        recencyStore: StoryRecencyStoring = FileStoryRecencyStore(),
+        bundleResourceURL: URL? = Bundle.main.resourceURL,
     ) {
         self.loader = loader
         self.parser = parser
         self.remoteLoader = remoteLoader
         self.persistedStoryStore = persistedStoryStore
+        self.recentLocalStoryStore = recentLocalStoryStore
+        self.recencyStore = recencyStore
+        self.bundleResourceURL = bundleResourceURL
+        availableStories = loadAvailableStories()
     }
 
     @MainActor
@@ -67,6 +78,7 @@ final class StoryDocumentStore: ObservableObject {
             if let document = parsed.document {
                 state = .loaded(document)
                 isPersistedStoryActive = false
+                recordStoryOpened(document: document, sourceURL: package.storyURL)
             } else {
                 handleLoadError("Story parsing failed.")
             }
@@ -87,6 +99,7 @@ final class StoryDocumentStore: ObservableObject {
             if let document = parsed.document {
                 state = .loaded(document)
                 persistRemoteStory(package: package)
+                recordStoryOpened(document: document, sourceURL: package.storyURL)
             } else {
                 handleLoadError("Story parsing failed.")
             }
@@ -158,6 +171,7 @@ final class StoryDocumentStore: ObservableObject {
             diagnostics = []
             isPersistedStoryActive = false
         }
+        refreshAvailableStories()
     }
 
     func loadBundledSampleIfAvailable(name: String = "sample-story") {
@@ -165,18 +179,22 @@ final class StoryDocumentStore: ObservableObject {
             return
         }
         hasLoadedSample = true
-        if let url = Bundle.main.url(forResource: name, withExtension: "mdx") {
-            loadStory(from: url)
-        } else {
-            diagnostics = [
-                .warning(
-                    code: "missing_bundle_sample",
-                    message: "Bundled \(name).mdx not found; using built-in sample story.",
-                ),
-            ]
-            state = .loaded(.sample())
-            isPersistedStoryActive = false
+        if let sampleStoryURL = bundledStoryURL(named: name) {
+            loadStory(from: sampleStoryURL)
+            return
         }
+        if let bundledPackageURL = bundledStoryPackageURLs().sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).first {
+            loadStory(from: bundledPackageURL)
+            return
+        }
+        diagnostics = [
+            .warning(
+                code: "missing_bundle_sample",
+                message: "Bundled story not found; using built-in sample story.",
+            ),
+        ]
+        state = .loaded(.sample())
+        isPersistedStoryActive = false
     }
 
     func handleLoadError(_ message: String) {
@@ -191,6 +209,7 @@ final class StoryDocumentStore: ObservableObject {
         diagnostics = parsed.diagnostics
         if let document = parsed.document {
             state = .loaded(document)
+            recordStoryOpened(document: document, sourceURL: story.sourceURL)
             return true
         }
         state = .failed("Story parsing failed.")
@@ -218,6 +237,32 @@ final class StoryDocumentStore: ObservableObject {
         }
     }
 
+    func refreshAvailableStories() {
+        availableStories = loadAvailableStories()
+    }
+
+    func loadStory(from item: StoryLaunchItem) {
+        switch item.source {
+        case .savedRemote:
+            guard loadPersistedStoryIfAvailable() else {
+                handleLoadError("Saved story could not be loaded.")
+                return
+            }
+        case .bundled:
+            guard let url = item.sourceURL else {
+                handleLoadError("Bundled story could not be loaded.")
+                return
+            }
+            loadStory(from: url)
+        case .recentLocal:
+            guard let resolvedURL = resolveBookmarkURL(sourceURL: item.sourceURL, bookmarkData: item.bookmarkData) else {
+                handleLoadError("Recent story could not be accessed.")
+                return
+            }
+            loadStory(from: resolvedURL)
+        }
+    }
+
     private func startSecurityScopedAccess(for url: URL) {
         #if os(iOS) || os(macOS)
             guard url.isFileURL else {
@@ -242,5 +287,243 @@ final class StoryDocumentStore: ObservableObject {
             hasSecurityScopedAccess = false
             activeSecurityScopedURL = nil
         #endif
+    }
+
+    private func loadAvailableStories() -> [StoryLaunchItem] {
+        var items: [StoryLaunchItem] = []
+        items.append(contentsOf: loadBundledStoryItems())
+        items.append(contentsOf: loadSavedRemoteStoryItems())
+        items.append(contentsOf: loadRecentLocalStoryItems())
+        return sortStoryItems(items)
+    }
+
+    private func loadBundledStoryItems() -> [StoryLaunchItem] {
+        let storyURLs = bundledStoryFileURLs()
+        return storyURLs.compactMap { url in
+            guard let package = try? loader.loadStory(at: url) else {
+                return nil
+            }
+            let parsed = parser.parse(package: package)
+            guard let document = parsed.document else {
+                return nil
+            }
+            let metadata = StoryMetadataSnapshot(document: document)
+            let recencyKey = recencyKey(for: .bundled, url: package.storyURL)
+            return StoryLaunchItem(
+                id: recencyKey,
+                metadata: metadata,
+                source: .bundled,
+                sourceURL: package.storyURL,
+                bookmarkData: nil,
+                lastOpened: recencyStore.lastOpened(for: recencyKey),
+            )
+        }
+    }
+
+    private func loadSavedRemoteStoryItems() -> [StoryLaunchItem] {
+        let storedStory = (try? persistedStoryStore.load()) ?? nil
+        guard let savedStory = storedStory else {
+            return []
+        }
+        let parsed = parser.parse(storyText: savedStory.storyText, assetBaseURL: savedStory.assetBaseURL)
+        guard let document = parsed.document else {
+            return []
+        }
+        let metadata = StoryMetadataSnapshot(document: document)
+        let recencyKey = recencyKey(for: .savedRemote, url: savedStory.sourceURL)
+        let lastOpened = recencyStore.lastOpened(for: recencyKey) ?? savedStory.savedAt
+        return [
+            StoryLaunchItem(
+                id: recencyKey,
+                metadata: metadata,
+                source: .savedRemote,
+                sourceURL: savedStory.sourceURL,
+                bookmarkData: nil,
+                lastOpened: lastOpened,
+            ),
+        ]
+    }
+
+    private func loadRecentLocalStoryItems() -> [StoryLaunchItem] {
+        guard let recentStories = try? recentLocalStoryStore.load() else {
+            return []
+        }
+        return recentStories.map { entry in
+            let recencyKey = recencyKey(for: .recentLocal, url: entry.sourceURL)
+            return StoryLaunchItem(
+                id: recencyKey,
+                metadata: entry.metadata,
+                source: .recentLocal,
+                sourceURL: entry.sourceURL,
+                bookmarkData: entry.bookmarkData,
+                lastOpened: entry.lastOpened,
+            )
+        }
+    }
+
+    private func sortStoryItems(_ items: [StoryLaunchItem]) -> [StoryLaunchItem] {
+        items.sorted { lhs, rhs in
+            switch (lhs.lastOpened, rhs.lastOpened) {
+            case let (left?, right?):
+                if left == right {
+                    return lhs.metadata.title.localizedCaseInsensitiveCompare(rhs.metadata.title) == .orderedAscending
+                }
+                return left > right
+            case (nil, nil):
+                return lhs.metadata.title.localizedCaseInsensitiveCompare(rhs.metadata.title) == .orderedAscending
+            case (nil, _?):
+                return false
+            case (_?, nil):
+                return true
+            }
+        }
+    }
+
+    private func recordStoryOpened(document: StoryDocument, sourceURL: URL) {
+        let source: StoryLaunchSource = isBundledStoryURL(sourceURL) ? .bundled : (sourceURL.isFileURL ? .recentLocal : .savedRemote)
+        let recencyKey = recencyKey(for: source, url: sourceURL)
+        do {
+            try recencyStore.update(key: recencyKey, lastOpened: Date())
+        } catch {
+            diagnostics.append(
+                .warning(
+                    code: "story_recency_save_failed",
+                    message: "Story opened, but it could not be saved to recents.",
+                )
+            )
+        }
+        if source == .recentLocal {
+            saveRecentLocalStory(document: document, sourceURL: sourceURL)
+        }
+        refreshAvailableStories()
+    }
+
+    private func saveRecentLocalStory(document: StoryDocument, sourceURL: URL) {
+        guard let bookmarkData = bookmarkDataForURL(sourceURL) else {
+            return
+        }
+        let metadata = StoryMetadataSnapshot(document: document)
+        let entry = RecentLocalStory(
+            sourceURL: sourceURL,
+            bookmarkData: bookmarkData,
+            metadata: metadata,
+            lastOpened: Date(),
+        )
+        let maxEntries = 10
+        var entries = (try? recentLocalStoryStore.load()) ?? []
+        entries.removeAll { $0.sourceURL == sourceURL }
+        entries.insert(entry, at: 0)
+        if entries.count > maxEntries {
+            entries = Array(entries.prefix(maxEntries))
+        }
+        try? recentLocalStoryStore.save(entries)
+    }
+
+    private func resolveBookmarkURL(sourceURL: URL?, bookmarkData: Data?) -> URL? {
+        guard let sourceURL, let bookmarkData else {
+            return sourceURL
+        }
+        var isStale = false
+        guard let resolvedURL = try? URL(
+            resolvingBookmarkData: bookmarkData,
+            options: bookmarkResolutionOptions,
+            bookmarkDataIsStale: &isStale
+        ) else {
+            return sourceURL
+        }
+        if isStale, let refreshed = bookmarkDataForURL(resolvedURL) {
+            var entries = (try? recentLocalStoryStore.load()) ?? []
+            if let index = entries.firstIndex(where: { $0.sourceURL == sourceURL }) {
+                let updated = RecentLocalStory(
+                    sourceURL: resolvedURL,
+                    bookmarkData: refreshed,
+                    metadata: entries[index].metadata,
+                    lastOpened: entries[index].lastOpened,
+                )
+                entries[index] = updated
+                try? recentLocalStoryStore.save(entries)
+            }
+        }
+        return resolvedURL
+    }
+
+    private var bookmarkResolutionOptions: URL.BookmarkResolutionOptions {
+        #if os(macOS)
+            return [.withSecurityScope, .withoutUI]
+        #else
+            return [.withoutUI]
+        #endif
+    }
+
+    private func bookmarkDataForURL(_ url: URL) -> Data? {
+        #if os(macOS)
+            return try? url.bookmarkData(options: .withSecurityScope)
+        #else
+            return try? url.bookmarkData()
+        #endif
+    }
+
+    private func recencyKey(for source: StoryLaunchSource, url: URL) -> String {
+        switch source {
+        case .bundled:
+            return "bundled:\(url.path)"
+        case .savedRemote:
+            return "saved:\(url.absoluteString)"
+        case .recentLocal:
+            return "local:\(url.absoluteString)"
+        }
+    }
+
+    private func bundledStoryURL(named name: String) -> URL? {
+        guard let bundleResourceURL else {
+            return nil
+        }
+        let url = bundleResourceURL.appendingPathComponent("\(name).mdx")
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+        return url
+    }
+
+    private func bundledStoryFileURLs() -> [URL] {
+        var urls: [URL] = []
+        if let sampleURL = bundledStoryURL(named: "sample-story") {
+            urls.append(sampleURL)
+        }
+        urls.append(contentsOf: bundledStoryPackageURLs())
+        return urls
+    }
+
+    private func bundledStoryPackageURLs() -> [URL] {
+        guard let bundleResourceURL else {
+            return []
+        }
+        let storiesURL = bundleResourceURL.appendingPathComponent("stories", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: storiesURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return []
+        }
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: storiesURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles],
+        ) else {
+            return []
+        }
+        return entries.filter { url in
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey])
+            guard values?.isDirectory == true else {
+                return false
+            }
+            let storyURL = url.appendingPathComponent("story.mdx")
+            return FileManager.default.fileExists(atPath: storyURL.path)
+        }
+    }
+
+    private func isBundledStoryURL(_ url: URL) -> Bool {
+        guard let bundleResourceURL else {
+            return false
+        }
+        return url.path.hasPrefix(bundleResourceURL.path)
     }
 }

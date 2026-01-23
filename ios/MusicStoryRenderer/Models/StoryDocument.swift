@@ -70,7 +70,7 @@ struct StoryDocument: Identifiable {
     }
 }
 
-struct StoryHeroImage: Hashable {
+struct StoryHeroImage: Hashable, Codable {
     let source: String
     let altText: String
     let credit: String?

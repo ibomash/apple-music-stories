@@ -2,7 +2,9 @@ import SwiftUI
 
 struct StoryLaunchView: View {
     @ObservedObject var store: StoryDocumentStore
+    let availableStories: [StoryLaunchItem]
     let onOpenStory: () -> Void
+    let onSelectStory: (StoryLaunchItem) -> Void
     let onPickStory: () -> Void
     let onLoadStoryURL: () -> Void
     let onDeleteStory: () -> Void
@@ -20,6 +22,7 @@ struct StoryLaunchView: View {
                         onOpenStory: onOpenStory,
                         onDeleteStory: onDeleteStory,
                     )
+                    StoryCatalogSection(stories: availableStories, onSelectStory: onSelectStory)
                     StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
                     if store.diagnostics.isEmpty == false {
                         StoryDiagnosticsSection(diagnostics: store.diagnostics)
@@ -109,6 +112,132 @@ private struct StoryStatusSection: View {
                 StoryPersistedStoryActions(sourceURL: persistedStoryURL, onDeleteStory: onDeleteStory)
             }
         }
+    }
+}
+
+private struct StoryCatalogSection: View {
+    let stories: [StoryLaunchItem]
+    let onSelectStory: (StoryLaunchItem) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Available Stories")
+                .font(.headline)
+            if stories.isEmpty {
+                StoryCatalogEmptyState()
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(stories) { item in
+                        Button {
+                            onSelectStory(item)
+                        } label: {
+                            StoryCatalogCard(item: item)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct StoryCatalogEmptyState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("No stories available", systemImage: "sparkles")
+                .font(.headline)
+            Text("Add a story package or load a URL to get started.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct StoryCatalogCard: View {
+    let item: StoryLaunchItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            StoryCatalogArtwork(heroImage: item.metadata.heroImage)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(item.metadata.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Spacer(minLength: 0)
+                    StorySourcePill(source: item.source)
+                }
+                if let subtitle = item.metadata.subtitle {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Text(metadataLine)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var metadataLine: String {
+        let authorLine = item.metadata.authors.joined(separator: ", ")
+        let dateLine = DateFormatter.storyDate.string(from: item.metadata.publishDate)
+        if item.metadata.tags.isEmpty {
+            return "\(authorLine) - \(dateLine)"
+        }
+        let tagLine = item.metadata.tags.prefix(2).joined(separator: " - ")
+        return "\(authorLine) - \(dateLine) - \(tagLine)"
+    }
+}
+
+private struct StoryCatalogArtwork: View {
+    let heroImage: StoryHeroImage?
+
+    var body: some View {
+        ZStack {
+            if let heroImage, let url = URL(string: heroImage.source) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    fallback
+                }
+            } else {
+                fallback
+            }
+        }
+        .frame(width: 96, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .accessibilityLabel(heroImage?.altText ?? "Story hero image")
+    }
+
+    @ViewBuilder
+    private var fallback: some View {
+        LinearGradient(
+            colors: [Color.indigo.opacity(0.8), Color.blue.opacity(0.6)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing,
+        )
+    }
+}
+
+private struct StorySourcePill: View {
+    let source: StoryLaunchSource
+
+    var body: some View {
+        Text(source.displayTitle)
+            .font(.caption2.bold())
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(.thinMaterial)
+            .clipShape(Capsule())
     }
 }
 

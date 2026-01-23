@@ -27,7 +27,9 @@ struct StoryRootView: View {
             NavigationStack {
                 StoryLaunchView(
                     store: store,
+                    availableStories: store.availableStories,
                     onOpenStory: openStory,
+                    onSelectStory: openStoryFromCatalog,
                     onPickStory: { isShowingStoryPicker = true },
                     onLoadStoryURL: { isShowingURLPrompt = true },
                     onDeleteStory: store.deletePersistedStory,
@@ -107,6 +109,11 @@ struct StoryRootView: View {
             return
         }
         isShowingStory = true
+    }
+
+    private func openStoryFromCatalog(_ item: StoryLaunchItem) {
+        shouldOpenStoryAfterLoad = true
+        store.loadStory(from: item)
     }
 
     private func handleStoryStateChange(_ state: StoryLoadState) {
