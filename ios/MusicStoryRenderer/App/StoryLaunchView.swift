@@ -286,37 +286,37 @@ private struct StoryLoadedCard: View {
     let onOpenStory: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            StoryPreviewImage(heroImage: document.heroImage)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(document.title)
-                    .font(.title2.bold())
-                if let subtitle = document.subtitle {
-                    Text(subtitle)
-                        .font(.subheadline)
+        Button(action: onOpenStory) {
+            VStack(alignment: .leading, spacing: 16) {
+                StoryPreviewImage(heroImage: document.heroImage)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(document.title)
+                        .font(.title2.bold())
+                    if let subtitle = document.subtitle {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(metadataLine)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let sourceLine {
+                        Text(sourceLine)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                Text(metadataLine)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let sourceLine {
-                    Text(sourceLine)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                if document.tags.isEmpty == false {
+                    StoryTagRow(tags: document.tags)
                 }
+                StoryOpenStoryCallToAction()
             }
-            if document.tags.isEmpty == false {
-                StoryTagRow(tags: document.tags)
-            }
-            Button(action: onOpenStory) {
-                Label("Open Story", systemImage: "arrow.right.circle.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
         }
-        .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .buttonStyle(.plain)
     }
 
     private var metadataLine: String {
@@ -335,6 +335,18 @@ private struct StoryLoadedCard: View {
         }
         let host = sourceURL.host ?? sourceURL.absoluteString
         return "Saved from \(host)"
+    }
+}
+
+private struct StoryOpenStoryCallToAction: View {
+    var body: some View {
+        Label("Open Story", systemImage: "arrow.right.circle.fill")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(.tint)
+            .foregroundStyle(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
