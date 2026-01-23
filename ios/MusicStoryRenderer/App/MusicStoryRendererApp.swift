@@ -267,7 +267,7 @@ private struct PlaybackBarView: View {
 
             Button(action: onExpand) {
                 HStack(spacing: 12) {
-                    NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL)
+                    NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL, size: 56)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(controller.displayMetadata?.title ?? "Nothing queued")
                             .font(.subheadline.bold())
@@ -333,64 +333,80 @@ private struct PlaybackAuthorizationBanner: View {
 }
 
 private struct NowPlayingSheetView: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var controller: AppleMusicPlaybackController
 
     var body: some View {
-        VStack(spacing: 24) {
-            Capsule()
-                .fill(Color.secondary.opacity(0.4))
-                .frame(width: 48, height: 6)
-                .padding(.top, 12)
-
-            NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL)
-                .frame(width: 180, height: 180)
-
-            VStack(spacing: 8) {
-                Text(controller.displayMetadata?.title ?? "Nothing playing")
-                    .font(.title2.bold())
-                    .multilineTextAlignment(.center)
-                Text(controller.displayMetadata?.subtitle ?? "Select a track to start")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(spacing: 24) {
-                Button {
-                    controller.togglePlayPause()
-                } label: {
-                    Image(systemName: controller.playbackState.actionSymbolName)
-                        .font(.largeTitle.bold())
+        NavigationStack {
+            VStack(spacing: 24) {
+                if controller.needsAuthorizationPrompt {
+                    PlaybackAuthorizationBanner(controller: controller)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(controller.authorizationStatus.requiresAuthorization)
 
-                Button {
-                    controller.playNextInQueue()
-                } label: {
-                    Image(systemName: "forward.fill")
+                NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL, size: 180, cornerRadius: 20)
+
+                VStack(spacing: 8) {
+                    Text(controller.displayMetadata?.title ?? "Nothing playing")
                         .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+                    Text(controller.displayMetadata?.subtitle ?? "Select a track to start")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.bordered)
-                .disabled(controller.queueState.upNext.isEmpty)
-            }
 
-            if let message = controller.lastErrorMessage {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
+                HStack(spacing: 24) {
+                    Button {
+                        controller.togglePlayPause()
+                    } label: {
+                        Image(systemName: controller.playbackState.actionSymbolName)
+                            .font(.largeTitle.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(controller.authorizationStatus.requiresAuthorization)
 
-            Spacer()
+                    Button {
+                        controller.playNextInQueue()
+                    } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.title2.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.queueState.upNext.isEmpty)
+                }
+
+                if let message = controller.lastErrorMessage {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .navigationTitle("Now Playing")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
         }
-        .padding(.horizontal, 24)
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
 private struct NowPlayingArtworkView: View {
     let url: URL?
+    var size: CGFloat = 56
+    var cornerRadius: CGFloat = 16
 
     var body: some View {
         ZStack {
@@ -408,6 +424,7 @@ private struct NowPlayingArtworkView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 }
