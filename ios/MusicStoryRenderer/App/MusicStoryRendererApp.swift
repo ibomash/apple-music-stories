@@ -466,10 +466,32 @@ private struct VideoPlaybackContainerView: View {
     let session: VideoPlaybackSession
     let onDismiss: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var dragOffset: CGFloat = 0
+    private let dismissThreshold: CGFloat = 140
 
     var body: some View {
         VideoPlaybackView(player: session.player)
             .ignoresSafeArea()
+            .offset(y: dragOffset)
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        guard value.translation.height > 0 else {
+                            return
+                        }
+                        dragOffset = value.translation.height
+                    }
+                    .onEnded { value in
+                        if value.translation.height > dismissThreshold {
+                            dismiss()
+                        } else {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                dragOffset = 0
+                            }
+                        }
+                    }
+            )
+            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: dragOffset)
         .onAppear {
             session.player.play()
         }
