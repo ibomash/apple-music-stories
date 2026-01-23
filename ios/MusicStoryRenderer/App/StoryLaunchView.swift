@@ -5,6 +5,7 @@ struct StoryLaunchView: View {
     let onOpenStory: () -> Void
     let onPickStory: () -> Void
     let onLoadStoryURL: () -> Void
+    let onDeleteStory: () -> Void
 
     var body: some View {
         ZStack {
@@ -12,7 +13,13 @@ struct StoryLaunchView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     StoryLaunchHeader()
-                    StoryStatusSection(state: store.state, onOpenStory: onOpenStory)
+                    StoryStatusSection(
+                        state: store.state,
+                        persistedStoryURL: persistedStoryURL,
+                        showDeleteAction: store.hasPersistedStory,
+                        onOpenStory: onOpenStory,
+                        onDeleteStory: onDeleteStory,
+                    )
                     StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
                     if store.diagnostics.isEmpty == false {
                         StoryDiagnosticsSection(diagnostics: store.diagnostics)
@@ -23,6 +30,10 @@ struct StoryLaunchView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var persistedStoryURL: URL? {
+        store.isPersistedStoryActive ? store.persistedStoryURL : nil
     }
 }
 
@@ -71,7 +82,10 @@ private struct StoryLaunchHeader: View {
 
 private struct StoryStatusSection: View {
     let state: StoryLoadState
+    let persistedStoryURL: URL?
+    let showDeleteAction: Bool
     let onOpenStory: () -> Void
+    let onDeleteStory: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -83,13 +97,16 @@ private struct StoryStatusSection: View {
             }
             switch state {
             case let .loaded(document):
-                StoryLoadedCard(document: document, onOpenStory: onOpenStory)
+                StoryLoadedCard(document: document, sourceURL: persistedStoryURL, onOpenStory: onOpenStory)
             case .loading:
                 StoryLoadingCard()
             case .idle:
                 StoryEmptyCard()
             case let .failed(message):
                 StoryErrorCard(message: message)
+            }
+            if showDeleteAction {
+                StoryPersistedStoryActions(sourceURL: persistedStoryURL, onDeleteStory: onDeleteStory)
             }
         }
     }
@@ -136,6 +153,7 @@ private struct StoryStatusPill: View {
 
 private struct StoryLoadedCard: View {
     let document: StoryDocument
+    let sourceURL: URL?
     let onOpenStory: () -> Void
 
     var body: some View {
@@ -152,6 +170,11 @@ private struct StoryLoadedCard: View {
                 Text(metadataLine)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let sourceLine {
+                    Text(sourceLine)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             if document.tags.isEmpty == false {
                 StoryTagRow(tags: document.tags)
@@ -175,6 +198,14 @@ private struct StoryLoadedCard: View {
         }
         let tagLine = document.tags.prefix(2).joined(separator: " - ")
         return "\(authorLine) - \(dateLine) - \(tagLine)"
+    }
+
+    private var sourceLine: String? {
+        guard let sourceURL else {
+            return nil
+        }
+        let host = sourceURL.host ?? sourceURL.absoluteString
+        return "Saved from \(host)"
     }
 }
 
@@ -327,6 +358,50 @@ private struct StoryDiagnosticsSection: View {
         .padding(16)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct StoryPersistedStoryActions: View {
+    let sourceURL: URL?
+    let onDeleteStory: () -> Void
+    @State private var isShowingDeleteConfirmation = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Saved URL story")
+                .font(.headline)
+            if let sourceLine {
+                Text(sourceLine)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button(role: .destructive) {
+                isShowingDeleteConfirmation = true
+            } label: {
+                Label("Delete Saved Story", systemImage: "trash")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .confirmationDialog(
+            "Delete saved story?",
+            isPresented: $isShowingDeleteConfirmation,
+            titleVisibility: .visible,
+        ) {
+            Button("Delete Story", role: .destructive, action: onDeleteStory)
+        } message: {
+            Text("This removes the saved URL story from this device.")
+        }
+    }
+
+    private var sourceLine: String? {
+        guard let sourceURL else {
+            return nil
+        }
+        return sourceURL.host ?? sourceURL.absoluteString
     }
 }
 

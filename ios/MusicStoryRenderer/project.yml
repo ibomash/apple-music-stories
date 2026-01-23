@@ -33,6 +33,7 @@ targets:
       - StoryParser.swift
       - StoryPackageLoader.swift
       - StoryDocumentStore.swift
+      - StoryPersistence.swift
     settings:
       base:
         SWIFT_VERSION: 6.2

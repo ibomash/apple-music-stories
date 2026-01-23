@@ -30,6 +30,7 @@ struct StoryRootView: View {
                     onOpenStory: openStory,
                     onPickStory: { isShowingStoryPicker = true },
                     onLoadStoryURL: { isShowingURLPrompt = true },
+                    onDeleteStory: store.deletePersistedStory,
                 )
                 .safeAreaInset(edge: .bottom) {
                     if playbackController.shouldShowPlaybackBar {
@@ -89,7 +90,7 @@ struct StoryRootView: View {
             }
         }
         .task {
-            store.loadBundledSampleIfAvailable()
+            store.loadInitialStory()
         }
         .animation(.easeInOut(duration: 0.2), value: playbackController.shouldShowPlaybackBar)
     }
