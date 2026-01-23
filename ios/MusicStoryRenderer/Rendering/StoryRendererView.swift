@@ -227,10 +227,10 @@ struct MediaReferenceView: View {
 
     var body: some View {
         let status = playbackController.queueState.status(for: media)
-        let playLabel = status == .playing ? "Playing" : (intent?.autoplay == true ? "Play Now" : "Play")
+        let playLabel = status == .playing ? "Playing" : playButtonLabel
         let queueLabel = switch status {
         case .idle:
-            "Queue"
+            queueButtonLabel
         case .queued:
             "Queued"
         case .playing:
@@ -239,7 +239,7 @@ struct MediaReferenceView: View {
 
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
-                MediaArtworkView(url: media.artworkURL)
+                MediaArtworkView(media: media)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(media.title)
                         .font(.headline)
@@ -279,6 +279,17 @@ struct MediaReferenceView: View {
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
+
+    private var playButtonLabel: String {
+        if media.type == .musicVideo {
+            return intent?.autoplay == true ? "Play Video" : "Play Video"
+        }
+        return intent?.autoplay == true ? "Play Now" : "Play"
+    }
+
+    private var queueButtonLabel: String {
+        media.type == .musicVideo ? "Queue Video" : "Queue"
+    }
 }
 
 struct MissingMediaReferenceView: View {
@@ -300,26 +311,39 @@ struct MissingMediaReferenceView: View {
 }
 
 struct MediaArtworkView: View {
-    let url: URL?
+    let media: StoryMediaReference
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.secondary.opacity(0.2))
-            if let url {
+            if let url = media.artworkURL {
                 AsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Color.clear
                 }
             } else {
-                Image(systemName: "music.note")
+                Image(systemName: placeholderSymbol)
                     .font(.title)
                     .foregroundStyle(.secondary)
+            }
+            if media.type == .musicVideo {
+                Image(systemName: "play.rectangle.fill")
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                    .shadow(radius: 6)
+                    .padding(6)
+                    .background(.black.opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
         .frame(width: 88, height: 88)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var placeholderSymbol: String {
+        media.type == .musicVideo ? "film" : "music.note"
     }
 }
 

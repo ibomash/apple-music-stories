@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -57,6 +58,20 @@ struct StoryRootView: View {
         }
         .sheet(isPresented: $isShowingNowPlaying) {
             NowPlayingSheetView(controller: playbackController)
+        }
+        .fullScreenCover(
+            item: Binding(
+                get: { playbackController.videoPlaybackSession },
+                set: { session in
+                    if session == nil {
+                        playbackController.dismissVideoPlayback()
+                    }
+                }
+            )
+        ) { session in
+            VideoPlaybackContainerView(session: session) {
+                playbackController.dismissVideoPlayback()
+            }
         }
         .sheet(isPresented: $isShowingURLPrompt) {
             StoryURLPromptView(
@@ -381,6 +396,17 @@ private struct NowPlayingSheetView: View {
                     .disabled(controller.queueState.upNext.isEmpty)
                 }
 
+                if controller.displayMetadata?.type == .musicVideo {
+                    Button {
+                        controller.presentVideoPlayback()
+                    } label: {
+                        Label("Show Video", systemImage: "play.rectangle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.videoPlaybackSession != nil)
+                }
+
                 if let message = controller.lastErrorMessage {
                     Label(message, systemImage: "exclamationmark.triangle")
                         .font(.footnote)
@@ -433,5 +459,40 @@ private struct NowPlayingArtworkView: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+    }
+}
+
+private struct VideoPlaybackContainerView: View {
+    let session: VideoPlaybackSession
+    let onDismiss: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VideoPlaybackView(player: session.player)
+            .ignoresSafeArea()
+        .onAppear {
+            session.player.play()
+        }
+        .onDisappear {
+            session.player.pause()
+            onDismiss()
+        }
+    }
+}
+
+private struct VideoPlaybackView: UIViewControllerRepresentable {
+    let player: AVPlayer
+
+    func makeUIViewController(context _: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.showsPlaybackControls = true
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: AVPlayerViewController, context _: Context) {
+        if uiViewController.player !== player {
+            uiViewController.player = player
+        }
     }
 }
