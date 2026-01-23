@@ -4,7 +4,7 @@ title: Check Apple Music catalog access
 status: Done
 assignee: []
 created_date: '2026-01-23 21:44'
-updated_date: '2026-01-23 21:50'
+updated_date: '2026-01-23 22:08'
 labels: []
 dependencies: []
 ---
@@ -18,5 +18,5 @@ Verify Apple Music catalog API access using provided developer token and documen
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Tested Apple Music catalog endpoint with provided developer token -> HTTP 401. JWT exp: 2026-01-23T02:32:05Z (likely expired).
+Merged opencode/clever-nebula into main and removed the associated worktree and branch.
 <!-- SECTION:NOTES:END -->
