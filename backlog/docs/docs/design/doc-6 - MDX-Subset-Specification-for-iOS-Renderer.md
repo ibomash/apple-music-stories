@@ -47,7 +47,7 @@ Defines the boundaries and metadata for a story section.
 - `layout` (optional): `lede` or `body`. Defaults to `body`.
 
 **Content rules**
-- A `<Section>` may contain paragraphs and `<MediaRef />` blocks only.
+- A `<Section>` may contain paragraphs plus the supported custom blocks below.
 - `<Section>` blocks cannot be nested.
 
 ### `<MediaRef />`
@@ -69,11 +69,153 @@ Embeds a media reference defined in the front matter.
 - `<MediaRef />` must be self-closing and appear on its own line.
 - `<MediaRef />` cannot contain children.
 
+### `<DropQuote>`
+Pull quote for emphasis.
+
+**Syntax**
+```mdx
+<DropQuote attribution="Prince">Purple rain, purple rain.</DropQuote>
+```
+
+**Attributes**
+- `attribution` (optional): short attribution or speaker.
+
+**Content rules**
+- `<DropQuote>` contains plain Markdown text only.
+
+### `<SideNote>`
+Margin-style callout note.
+
+**Syntax**
+```mdx
+<SideNote label="Context">
+  The 1984 tour redefined arena staging.
+</SideNote>
+```
+
+**Attributes**
+- `label` (optional): short label for the note.
+
+**Content rules**
+- `<SideNote>` contains plain Markdown text only.
+
+### `<FeatureBox>`
+Expandable or emphasized feature module.
+
+**Syntax**
+```mdx
+<FeatureBox title="The Purple Years" summary="A quick recap" expandable="true">
+  The Minneapolis sessions blurred funk, pop, and rock.
+</FeatureBox>
+```
+
+**Attributes**
+- `title` (optional): headline for the box.
+- `summary` (optional): short summary shown in collapsed state.
+- `expandable` (optional): `true` or `false`, defaults to `false`.
+
+**Content rules**
+- `<FeatureBox>` contains plain Markdown text only.
+
+### `<FactGrid>`
+Grid of label/value facts.
+
+**Syntax**
+```mdx
+<FactGrid>
+  <Fact label="Albums" value="15" />
+  <Fact label="Grammys" value="7" />
+</FactGrid>
+```
+
+**Attributes**
+- None.
+
+**Content rules**
+- `<FactGrid>` can only contain `<Fact />` children.
+
+### `<Fact />`
+Single fact item for a `FactGrid`.
+
+**Attributes**
+- `label` (required): short fact label.
+- `value` (required): value text.
+
+### `<Timeline>`
+Ordered timeline of dated entries.
+
+**Syntax**
+```mdx
+<Timeline>
+  <TimelineItem year="1982">1999 lands and changes the skyline.</TimelineItem>
+  <TimelineItem year="1984">Purple Rain takes over radio.</TimelineItem>
+</Timeline>
+```
+
+**Attributes**
+- None.
+
+**Content rules**
+- `<Timeline>` can only contain `<TimelineItem>` children.
+
+### `<TimelineItem>`
+Timeline entry with a year label and text.
+
+**Attributes**
+- `year` (required): year label.
+
+**Content rules**
+- `<TimelineItem>` contains plain Markdown text only.
+
+### `<Gallery>`
+Image gallery with captions.
+
+**Syntax**
+```mdx
+<Gallery>
+  <GalleryImage src="assets/purple-1.jpg" alt="Prince live" caption="Purple Rain tour" />
+  <GalleryImage src="assets/purple-2.jpg" alt="Studio" caption="Paisley Park" />
+</Gallery>
+```
+
+**Attributes**
+- None.
+
+**Content rules**
+- `<Gallery>` can only contain `<GalleryImage />` children.
+
+### `<GalleryImage />`
+Image entry for a gallery.
+
+**Attributes**
+- `src` (required): asset path.
+- `alt` (required): alt text.
+- `caption` (optional): caption text.
+- `credit` (optional): credit text.
+
+### `<FullBleed />`
+Edge-to-edge media block.
+
+**Syntax**
+```mdx
+<FullBleed src="assets/prince-stage.jpg" alt="Prince on stage" caption="Purple Rain finale" />
+```
+
+**Attributes**
+- `src` (required): asset path.
+- `alt` (required): alt text.
+- `caption` (optional): caption text.
+- `credit` (optional): credit text.
+- `kind` (optional): `image` or `video`. Defaults to `image`.
+
+**Content rules**
+- `<FullBleed />` must be self-closing and appear on its own line.
+
 ## Explicitly Unsupported MDX
 The following syntax is rejected by the iOS parser:
 - `import`/`export` statements.
 - JSX expressions or JavaScript in attributes (`{}` or `{...spread}`).
-- Custom components other than `<Section>` and `<MediaRef />`.
+- Custom components other than the list in this document.
 - Raw HTML blocks.
 - Markdown headings, lists, blockquotes, tables, images, or fenced code blocks.
 
