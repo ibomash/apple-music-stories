@@ -1,4 +1,3 @@
-import AVKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -59,20 +58,6 @@ struct StoryRootView: View {
         }
         .sheet(isPresented: $isShowingNowPlaying) {
             NowPlayingSheetView(controller: playbackController)
-        }
-        .fullScreenCover(
-            item: Binding(
-                get: { playbackController.videoPlaybackSession },
-                set: { session in
-                    if session == nil {
-                        playbackController.dismissVideoPlayback()
-                    }
-                }
-            )
-        ) { session in
-            VideoPlaybackContainerView(session: session) {
-                playbackController.dismissVideoPlayback()
-            }
         }
         .sheet(isPresented: $isShowingURLPrompt) {
             StoryURLPromptView(
@@ -404,13 +389,13 @@ private struct NowPlayingSheetView: View {
 
                 if controller.displayMetadata?.type == .musicVideo {
                     Button {
-                        controller.presentVideoPlayback()
+                        controller.openInMusic()
                     } label: {
-                        Label("Show Video", systemImage: "play.rectangle")
+                        Label("Play Video in Music app", systemImage: "music.note")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(controller.videoPlaybackSession != nil)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(controller.authorizationStatus.requiresAuthorization)
                 }
 
                 if let message = controller.lastErrorMessage {
@@ -465,62 +450,5 @@ private struct NowPlayingArtworkView: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-    }
-}
-
-private struct VideoPlaybackContainerView: View {
-    let session: VideoPlaybackSession
-    let onDismiss: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    @State private var dragOffset: CGFloat = 0
-    private let dismissThreshold: CGFloat = 140
-
-    var body: some View {
-        VideoPlaybackView(player: session.player)
-            .ignoresSafeArea()
-            .offset(y: dragOffset)
-            .simultaneousGesture(
-                DragGesture()
-                    .onChanged { value in
-                        guard value.translation.height > 0 else {
-                            return
-                        }
-                        dragOffset = value.translation.height
-                    }
-                    .onEnded { value in
-                        if value.translation.height > dismissThreshold {
-                            dismiss()
-                        } else {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                                dragOffset = 0
-                            }
-                        }
-                    }
-            )
-            .animation(.spring(response: 0.3, dampingFraction: 0.85), value: dragOffset)
-        .onAppear {
-            session.player.play()
-        }
-        .onDisappear {
-            session.player.pause()
-            onDismiss()
-        }
-    }
-}
-
-private struct VideoPlaybackView: UIViewControllerRepresentable {
-    let player: AVPlayer
-
-    func makeUIViewController(context _: Context) -> AVPlayerViewController {
-        let controller = AVPlayerViewController()
-        controller.player = player
-        controller.showsPlaybackControls = true
-        return controller
-    }
-
-    func updateUIViewController(_ uiViewController: AVPlayerViewController, context _: Context) {
-        if uiViewController.player !== player {
-            uiViewController.player = player
-        }
     }
 }

@@ -226,6 +226,7 @@ struct MediaReferenceView: View {
     let playbackController: AppleMusicPlaybackController
 
     var body: some View {
+        let isVideo = media.type == .musicVideo
         let status = playbackController.queueState.status(for: media)
         let playLabel = status == .playing ? "Playing" : playButtonLabel
         let queueLabel = switch status {
@@ -253,26 +254,37 @@ struct MediaReferenceView: View {
                 Spacer(minLength: 0)
                 MediaStatusBadge(status: status)
             }
-            HStack(spacing: 12) {
+            if isVideo {
                 Button {
-                    playbackController.play(media: media, intent: intent)
+                    playbackController.openInMusic(for: media)
                 } label: {
-                    Text(playLabel)
+                    Text("Play Video in Music app")
                         .font(.subheadline.bold())
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(status == .playing)
+            } else {
+                HStack(spacing: 12) {
+                    Button {
+                        playbackController.play(media: media, intent: intent)
+                    } label: {
+                        Text(playLabel)
+                            .font(.subheadline.bold())
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(status == .playing)
 
-                Button {
-                    playbackController.queue(media: media, intent: intent)
-                } label: {
-                    Text(queueLabel)
-                        .font(.subheadline.bold())
-                        .frame(maxWidth: .infinity)
+                    Button {
+                        playbackController.queue(media: media, intent: intent)
+                    } label: {
+                        Text(queueLabel)
+                            .font(.subheadline.bold())
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(status != .idle)
                 }
-                .buttonStyle(.bordered)
-                .disabled(status != .idle)
             }
         }
         .padding(16)
@@ -281,14 +293,11 @@ struct MediaReferenceView: View {
     }
 
     private var playButtonLabel: String {
-        if media.type == .musicVideo {
-            return intent?.autoplay == true ? "Play Video" : "Play Video"
-        }
         return intent?.autoplay == true ? "Play Now" : "Play"
     }
 
     private var queueButtonLabel: String {
-        media.type == .musicVideo ? "Queue Video" : "Queue"
+        "Queue"
     }
 }
 
