@@ -16,6 +16,8 @@ This project uses Python 3.13 and Swift 6.2.
 
 Always write and run relevant tests for changes. If tests cannot run in the current environment, note the blocker in your final update.
 
+For web story renderer smoke checks, run `uv run scripts/render_story.py serve --host 127.0.0.1 --port 8000` and `node scripts/puppeteer_story_test.js` (override with `STORY_BASE_URL`).
+
 ## Story Authoring
 
 Use `AGENTS-authoring.md` for the authoring-only prompt and guidance.

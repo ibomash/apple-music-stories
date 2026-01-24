@@ -36,3 +36,10 @@ MusicKit JS requires a secure context. Start the server with HTTPS:
 - Visit: `https://<host>:8443`
 
 Pass the Apple Music developer token via `APPLE_MUSIC_DEVELOPER_TOKEN` or `--developer-token`.
+
+### Puppeteer smoke test
+- Install Node dependencies: `npm install`
+- Start the server: `uv run scripts/render_story.py serve --host 127.0.0.1 --port 8000`
+- Run the test: `node scripts/puppeteer_story_test.js`
+
+Override the base URL with `STORY_BASE_URL` if you are serving on a different host/port.
