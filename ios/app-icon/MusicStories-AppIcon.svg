@@ -1,0 +1,66 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1221" />
+      <stop offset="55%" stop-color="#111f3a" />
+      <stop offset="100%" stop-color="#0a1020" />
+    </linearGradient>
+    <radialGradient id="bg-glow" cx="16%" cy="18%" r="70%">
+      <stop offset="0%" stop-color="#2c4b84" stop-opacity="0.55" />
+      <stop offset="65%" stop-color="#152445" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0b1221" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bg-vignette" cx="50%" cy="70%" r="70%">
+      <stop offset="50%" stop-color="#0b1221" stop-opacity="0" />
+      <stop offset="100%" stop-color="#050913" stop-opacity="0.55" />
+    </radialGradient>
+    <linearGradient id="card-gradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fcf9f3" />
+      <stop offset="100%" stop-color="#efe4d8" />
+    </linearGradient>
+    <linearGradient id="card-highlight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="disc-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff9a8b" />
+      <stop offset="70%" stop-color="#f05555" />
+      <stop offset="100%" stop-color="#d94141" />
+    </linearGradient>
+    <radialGradient id="disc-highlight" cx="30%" cy="25%" r="55%">
+      <stop offset="0%" stop-color="#ffe1d8" stop-opacity="0.95" />
+      <stop offset="65%" stop-color="#ff9a8b" stop-opacity="0" />
+    </radialGradient>
+    <filter id="card-shadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#050913" flood-opacity="0.36" />
+    </filter>
+    <filter id="disc-shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#2a0b15" flood-opacity="0.3" />
+    </filter>
+    <clipPath id="ios-squircle">
+      <path d="M512,1024 C252,1024 0,772 0,512 C0,252 252,0 512,0 C772,0 1024,252 1024,512 C1024,772 772,1024 512,1024 Z" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#ios-squircle)">
+    <rect width="1024" height="1024" fill="url(#bg-gradient)" />
+    <rect width="1024" height="1024" fill="url(#bg-glow)" />
+    <rect width="1024" height="1024" fill="url(#bg-vignette)" />
+    <g filter="url(#card-shadow)">
+      <rect x="180" y="184" width="600" height="700" rx="108" fill="#e9ded1" opacity="0.8" />
+      <rect x="224" y="148" width="576" height="728" rx="108" fill="url(#card-gradient)" />
+      <rect x="244" y="168" width="536" height="118" rx="68" fill="url(#card-highlight)" opacity="0.5" />
+    </g>
+    <g opacity="0.55">
+      <rect x="308" y="320" width="220" height="18" rx="9" fill="#dfd3c6" />
+      <rect x="308" y="358" width="182" height="18" rx="9" fill="#dfd3c6" />
+      <rect x="308" y="396" width="134" height="18" rx="9" fill="#dfd3c6" />
+    </g>
+    <g filter="url(#disc-shadow)">
+      <circle cx="732" cy="432" r="142" fill="url(#disc-gradient)" />
+      <circle cx="732" cy="432" r="108" fill="#e44e4e" opacity="0.55" />
+      <circle cx="732" cy="432" r="142" fill="url(#disc-highlight)" />
+      <circle cx="732" cy="432" r="58" fill="#d34646" />
+      <polygon points="708,370 800,432 708,494" fill="#fbf6ee" />
+    </g>
+  </g>
+</svg>

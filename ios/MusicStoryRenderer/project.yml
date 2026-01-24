@@ -2,6 +2,7 @@ name: MusicStoryRenderer
 
 options:
   bundleIdPrefix: net.bomash.illya
+  postGenCommand: python3 ../../scripts/fix_iconcomposer_filetype.py
 
 configFiles:
   Debug: Config/Signing.xcconfig
@@ -34,6 +35,8 @@ targets:
       - StoryPackageLoader.swift
       - StoryDocumentStore.swift
       - StoryPersistence.swift
+      - path: ../app-icon/MusicStories-AppIcon-Composed.icon
+        buildPhase: resources
     resources:
       - path: ../../stories
         type: folder
@@ -54,6 +57,7 @@ targets:
         INFOPLIST_FILE: Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: net.bomash.illya.MusicStories
         CODE_SIGN_ENTITLEMENTS: App/MusicStoryRenderer.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: MusicStories-AppIcon-Composed
 
   MusicStoryRendererCoreTests:
     type: bundle.unit-test

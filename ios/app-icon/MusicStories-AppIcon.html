@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Music Stories App Icon</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1220;
+        --panel: #111a2e;
+        --border: #1f2a44;
+        --text: #e7ecf5;
+        --muted: #9aa6bf;
+        --accent: #f45b5b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Avenir", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        background: radial-gradient(circle at top, #15223b, #0b1220 55%, #070c18 100%);
+        color: var(--text);
+      }
+
+      header {
+        padding: 32px clamp(20px, 4vw, 48px) 12px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(24px, 3vw, 34px);
+        letter-spacing: 0.02em;
+      }
+
+      p {
+        margin: 0 0 12px;
+        color: var(--muted);
+        max-width: 760px;
+        line-height: 1.6;
+      }
+
+      main {
+        padding: 0 clamp(20px, 4vw, 48px) 48px;
+      }
+
+      .philosophy {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 28px;
+      }
+
+      .icon-preview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 32px;
+      }
+
+      .preview-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .preview-card canvas {
+        width: 100%;
+        height: auto;
+        border-radius: 20px;
+        background: #0b1220;
+      }
+
+      .preview-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .preview-meta span {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+      }
+
+      .grid-card {
+        background: #0f182c;
+        border: 1px solid #1d2840;
+        border-radius: 14px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .grid-card canvas {
+        width: 100%;
+        max-width: 120px;
+        height: auto;
+        border-radius: 14px;
+      }
+
+      .grid-card span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Music Stories App Icon</h1>
+      <p>
+        Open this file in a browser, review the icon at multiple sizes, then use the
+        download buttons to export PNGs for the iOS asset catalog.
+      </p>
+    </header>
+
+    <main>
+      <section class="philosophy">
+        <p>
+          Icon philosophy: The app blends editorial storytelling with immersive playback. The icon
+          captures that feeling with a clean story card anchored by a record-inspired play disc. The
+          warm coral disc signals music and motion, while the soft paper page suggests long-form
+          narrative. A deep night-sky gradient background echoes a cinematic, focused reading mood.
+        </p>
+      </section>
+
+      <section class="icon-preview" id="icon-preview"></section>
+
+      <section class="grid" id="preview-grid"></section>
+    </main>
+
+    <script>
+      const svgMarkup = `
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1221" />
+      <stop offset="55%" stop-color="#111f3a" />
+      <stop offset="100%" stop-color="#0a1020" />
+    </linearGradient>
+    <radialGradient id="bg-glow" cx="16%" cy="18%" r="70%">
+      <stop offset="0%" stop-color="#2c4b84" stop-opacity="0.55" />
+      <stop offset="65%" stop-color="#152445" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#0b1221" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bg-vignette" cx="50%" cy="70%" r="70%">
+      <stop offset="50%" stop-color="#0b1221" stop-opacity="0" />
+      <stop offset="100%" stop-color="#050913" stop-opacity="0.55" />
+    </radialGradient>
+    <linearGradient id="card-gradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fcf9f3" />
+      <stop offset="100%" stop-color="#efe4d8" />
+    </linearGradient>
+    <linearGradient id="card-highlight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="disc-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff9a8b" />
+      <stop offset="70%" stop-color="#f05555" />
+      <stop offset="100%" stop-color="#d94141" />
+    </linearGradient>
+    <radialGradient id="disc-highlight" cx="30%" cy="25%" r="55%">
+      <stop offset="0%" stop-color="#ffe1d8" stop-opacity="0.95" />
+      <stop offset="65%" stop-color="#ff9a8b" stop-opacity="0" />
+    </radialGradient>
+    <filter id="card-shadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#050913" flood-opacity="0.36" />
+    </filter>
+    <filter id="disc-shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#2a0b15" flood-opacity="0.3" />
+    </filter>
+    <clipPath id="ios-squircle">
+      <path d="M512,1024 C252,1024 0,772 0,512 C0,252 252,0 512,0 C772,0 1024,252 1024,512 C1024,772 772,1024 512,1024 Z" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#ios-squircle)">
+    <rect width="1024" height="1024" fill="url(#bg-gradient)" />
+    <rect width="1024" height="1024" fill="url(#bg-glow)" />
+    <rect width="1024" height="1024" fill="url(#bg-vignette)" />
+    <g filter="url(#card-shadow)">
+      <rect x="180" y="184" width="600" height="700" rx="108" fill="#e9ded1" opacity="0.8" />
+      <rect x="224" y="148" width="576" height="728" rx="108" fill="url(#card-gradient)" />
+      <rect x="244" y="168" width="536" height="118" rx="68" fill="url(#card-highlight)" opacity="0.5" />
+    </g>
+    <g opacity="0.55">
+      <rect x="308" y="320" width="220" height="18" rx="9" fill="#dfd3c6" />
+      <rect x="308" y="358" width="182" height="18" rx="9" fill="#dfd3c6" />
+      <rect x="308" y="396" width="134" height="18" rx="9" fill="#dfd3c6" />
+    </g>
+    <g filter="url(#disc-shadow)">
+      <circle cx="732" cy="432" r="142" fill="url(#disc-gradient)" />
+      <circle cx="732" cy="432" r="108" fill="#e44e4e" opacity="0.55" />
+      <circle cx="732" cy="432" r="142" fill="url(#disc-highlight)" />
+      <circle cx="732" cy="432" r="58" fill="#d34646" />
+      <polygon points="708,370 800,432 708,494" fill="#fbf6ee" />
+    </g>
+  </g>
+</svg>`;
+
+      const heroSizes = [1024, 180, 167];
+      const allSizes = [
+        { size: 1024, label: "App Store" },
+        { size: 180, label: "iPhone @3x" },
+        { size: 167, label: "iPad Pro @2x" },
+        { size: 152, label: "iPad @2x" },
+        { size: 120, label: "iPhone @2x" },
+        { size: 87, label: "Spotlight @3x" },
+        { size: 80, label: "Spotlight @2x" },
+        { size: 76, label: "iPad @1x" },
+        { size: 60, label: "iPhone @1x" },
+        { size: 58, label: "Settings @2x" },
+        { size: 40, label: "Spotlight @1x" },
+        { size: 29, label: "Settings @1x" },
+        { size: 20, label: "Notification @1x" }
+      ];
+
+      function buildSvg(size) {
+        return svgMarkup
+          .replace('width="1024"', `width="${size}"`)
+          .replace('height="1024"', `height="${size}"`);
+      }
+
+      function renderToCanvas(size, canvas, callback) {
+        const svg = buildSvg(size);
+        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          URL.revokeObjectURL(url);
+          if (callback) callback();
+        };
+        img.src = url;
+      }
+
+      function downloadPng(size) {
+        const canvas = document.createElement("canvas");
+        renderToCanvas(size, canvas, () => {
+          const link = document.createElement("a");
+          link.download = `MusicStories-AppIcon-${size}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        });
+      }
+
+      const previewSection = document.getElementById("icon-preview");
+      heroSizes.forEach((size) => {
+        const card = document.createElement("div");
+        card.className = "preview-card";
+        const canvas = document.createElement("canvas");
+        renderToCanvas(size, canvas);
+        const meta = document.createElement("div");
+        meta.className = "preview-meta";
+        const label = document.createElement("span");
+        label.textContent = `${size}x${size}`;
+        const button = document.createElement("button");
+        button.textContent = "Download";
+        button.onclick = () => downloadPng(size);
+        meta.appendChild(label);
+        meta.appendChild(button);
+        card.appendChild(canvas);
+        card.appendChild(meta);
+        previewSection.appendChild(card);
+      });
+
+      const grid = document.getElementById("preview-grid");
+      allSizes.forEach(({ size, label }) => {
+        const card = document.createElement("div");
+        card.className = "grid-card";
+        const canvas = document.createElement("canvas");
+        renderToCanvas(size, canvas);
+        const title = document.createElement("span");
+        title.textContent = `${label} (${size}x${size})`;
+        const button = document.createElement("button");
+        button.textContent = "Download";
+        button.onclick = () => downloadPng(size);
+        card.appendChild(canvas);
+        card.appendChild(title);
+        card.appendChild(button);
+        grid.appendChild(card);
+      });
+    </script>
+  </body>
+</html>
