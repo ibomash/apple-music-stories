@@ -15,6 +15,7 @@ npm-debug.log
 # Runtime artifacts
 logs/
 scripts/__pycache__/
+.auth/
 
 # XcodeGen output
 ios/MusicStoryRenderer/*.xcodeproj
