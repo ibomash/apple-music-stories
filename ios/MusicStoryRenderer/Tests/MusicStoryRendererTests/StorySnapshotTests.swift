@@ -136,12 +136,17 @@ final class StorySnapshotTests: XCTestCase {
             id: "snapshot-story",
             title: "Snapshots in Motion",
             subtitle: "A visual regression story",
+            deck: nil,
             authors: ["Music Stories"],
             editors: [],
             publishDate: Date(timeIntervalSince1970: 1_737_484_800),
             tags: ["ui", "snapshot"],
             locale: "en-US",
+            accentColor: nil,
+            heroGradient: [],
+            typeRamp: nil,
             heroImage: nil,
+            leadArt: nil,
             sections: [
                 StorySection(
                     id: "intro",

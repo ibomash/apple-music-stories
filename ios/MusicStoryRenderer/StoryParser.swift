@@ -277,13 +277,22 @@ struct StoryParser {
             guard let key = entry["key"],
                   let typeValue = entry["type"],
                   let mediaType = StoryMediaType(storageValue: typeValue),
-                  let appleMusicId = entry["apple_music_id"],
+                  let appleMusicIdRaw = entry["apple_music_id"],
                   let mediaTitle = entry["title"],
                   let artist = entry["artist"]
             else {
                 diagnostics.append(.error(
                     code: "missing_required_field",
                     message: "Media entries require key, type, apple_music_id, title, and artist.",
+                ))
+                continue
+            }
+
+            let appleMusicId = appleMusicIdRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard appleMusicId.isEmpty == false else {
+                diagnostics.append(.error(
+                    code: "invalid_media_id",
+                    message: "Media entries require a non-empty apple_music_id.",
                 ))
                 continue
             }

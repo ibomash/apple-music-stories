@@ -19,7 +19,12 @@ struct StoryRendererView: View {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 32) {
-                        StoryHeaderView(document: document, heroGradient: heroGradient, contentWidth: contentWidth)
+                        StoryHeaderView(
+                            document: document,
+                            playbackController: playbackController,
+                            heroGradient: heroGradient,
+                            contentWidth: contentWidth
+                        )
                             .id(headerAnchorID)
                             .storyScrollAnchor(id: headerAnchorID, in: scrollSpaceName)
                         ForEach(document.sections) { section in
@@ -30,6 +35,9 @@ struct StoryRendererView: View {
                                 scrollSpaceName: scrollSpaceName,
                                 accentColor: accentColor,
                             )
+                        }
+                        if document.media.isEmpty == false {
+                            StoryPlaylistCallToActionView(document: document, playbackController: playbackController)
                         }
                     }
                     .frame(width: contentWidth, alignment: .leading)
@@ -112,15 +120,25 @@ struct StoryRendererView: View {
 
 struct StoryHeaderView: View {
     let document: StoryDocument
+    @ObservedObject var playbackController: AppleMusicPlaybackController
     let heroGradient: [Color]
     let contentWidth: CGFloat
 
     var body: some View {
+        let playlistStatus = playbackController.playlistStatus(for: document)
+
         VStack(alignment: .leading, spacing: 16) {
             StoryHeroImageView(heroImage: document.heroImage, gradientColors: heroGradient, width: contentWidth)
             VStack(alignment: .leading, spacing: 8) {
-                Text(document.title)
-                    .font(.largeTitle.bold())
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(document.title)
+                        .font(.largeTitle.bold())
+                        .layoutPriority(1)
+                    Spacer(minLength: 0)
+                    if document.media.isEmpty == false {
+                        StoryHeaderMenuButton(document: document, status: playlistStatus, playbackController: playbackController)
+                    }
+                }
                 if let deck = document.deck {
                     Text(deck)
                         .font(.title3)
@@ -150,6 +168,69 @@ struct StoryHeaderView: View {
         }
         let tagLine = document.tags.joined(separator: " • ")
         return "\(authorLine) • \(dateLine) • \(tagLine)"
+    }
+}
+
+struct StoryHeaderMenuButton: View {
+    let document: StoryDocument
+    let status: PlaylistCreationStatus
+    @ObservedObject var playbackController: AppleMusicPlaybackController
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Menu {
+            if case let .created(_, url) = status, let url {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label("Open Playlist in Music", systemImage: "music.note.list")
+                }
+            }
+            if status == .creating {
+                Button(role: .destructive) {
+                    playbackController.cancelPlaylistCreation()
+                } label: {
+                    Label("Cancel playlist creation", systemImage: "xmark.circle")
+                }
+            }
+            Button {
+                playbackController.createPlaylist(from: document)
+            } label: {
+                Label(menuTitle, systemImage: menuIcon)
+            }
+            .disabled(isCreateDisabled)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Story actions")
+        }
+    }
+
+    private var isCreateDisabled: Bool {
+        status == .creating
+    }
+
+    private var menuTitle: String {
+        switch status {
+        case .creating:
+            "Creating playlist..."
+        case .created(_, _):
+            "Recreate story playlist"
+        case .failed, .idle:
+            "Create story playlist"
+        }
+    }
+
+    private var menuIcon: String {
+        switch status {
+        case .created(_, _):
+            "checkmark.circle"
+        case .creating:
+            "hourglass"
+        case .failed, .idle:
+            "plus.circle"
+        }
     }
 }
 
@@ -258,6 +339,125 @@ struct StorySectionView: View {
         }
         .id(section.id)
         .storyScrollAnchor(id: section.id, in: scrollSpaceName)
+    }
+}
+
+struct StoryPlaylistCallToActionView: View {
+    let document: StoryDocument
+    @ObservedObject var playbackController: AppleMusicPlaybackController
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let status = playbackController.playlistStatus(for: document)
+        let progress = playbackController.playlistCreationProgress
+        let counts = playbackController.playlistCreationCounts
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Create the story playlist")
+                .font(.headline)
+            statusDetail(status, progress: progress, counts: counts)
+            Button {
+                playbackController.createPlaylist(from: document)
+            } label: {
+                Label(buttonTitle(for: status), systemImage: "plus.circle")
+                    .font(.subheadline.bold())
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(status == .creating)
+            if status == .creating {
+                Button {
+                    playbackController.cancelPlaylistCreation()
+                } label: {
+                    Label("Cancel", systemImage: "xmark.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+            if case let .created(_, url) = status, let url {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label("Open Playlist in Music", systemImage: "music.note.list")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private func statusDetail(
+        _ status: PlaylistCreationStatus,
+        progress: PlaylistCreationProgress,
+        counts: PlaylistCreationCounts
+    ) -> some View {
+        switch status {
+        case .idle:
+            Text("Save every track mentioned for offline listening in the Music app.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        case .creating:
+            VStack(alignment: .leading, spacing: 6) {
+                let label = progressLabel(progress: progress, counts: counts)
+                if counts.total > 0 {
+                    ProgressView(value: countsProgress(counts)) {
+                        Text(label)
+                            .font(.callout)
+                    }
+                } else {
+                    ProgressView(label)
+                        .font(.callout)
+                }
+                if counts.total > 0 {
+                    Text("Added \(counts.added) of \(counts.total) items")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case let .created(name, _):
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Created \"\(name)\" in your library.", systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if counts.total > 0 {
+                    Text("Added \(counts.added) of \(counts.total) items.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if counts.failed > 0 {
+                    Text("\(counts.failed) items could not be added.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case let .failed(message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .font(.callout)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func progressLabel(progress: PlaylistCreationProgress, counts: PlaylistCreationCounts) -> String {
+        if counts.total > 0 {
+            return "Added \(counts.added) of \(counts.total)"
+        }
+        return progress.label.isEmpty ? "Creating playlist..." : progress.label
+    }
+
+    private func countsProgress(_ counts: PlaylistCreationCounts) -> Double {
+        guard counts.total > 0 else {
+            return 0
+        }
+        return Double(counts.completed) / Double(counts.total)
+    }
+
+    private func buttonTitle(for status: PlaylistCreationStatus) -> String {
+        status == .creating ? "Creating..." : "Create Story Playlist"
     }
 }
 

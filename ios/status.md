@@ -10,6 +10,7 @@
 1. TASK-35 - Add iOS UI snapshot + diagnostics banner tests
 
 ## Notes
+- Story renderer includes a playlist creation CTA for story media.
 - Linux: focus on SwiftPM core tests, docs, and fixtures; UI changes still require macOS validation.
 - macOS: create the Xcode project, configure signing/MusicKit capability, and run simulator/device builds.
 - TASK-31 should land before or alongside TASK-26 so device testing can validate Apple Music playback.
