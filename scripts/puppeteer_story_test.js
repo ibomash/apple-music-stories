@@ -181,17 +181,36 @@ const run = async () => {
       });
 
       if (!isAuthorized) {
+        // Set up popup listener for auth flow (MusicKit v3 opens a popup)
+        const popupPromise = new Promise((resolve) => {
+          browser.once("targetcreated", async (target) => {
+            if (target.type() === "page") {
+              const popup = await target.page();
+              resolve(popup);
+            }
+          });
+          // Timeout if no popup
+          setTimeout(() => resolve(null), 10000);
+        });
+
         await authButton.click();
+
+        // Wait for either popup-based auth or direct auth
+        const popup = await popupPromise;
+        if (popup) {
+          console.log("Auth popup opened. Waiting for completion...");
+        }
+
         try {
           await page.waitForFunction(
             () => {
               const instance = window.MusicKit ? window.MusicKit.getInstance() : null;
               return Boolean(instance && instance.isAuthorized);
             },
-            { timeout: 15000 },
+            { timeout: 30000 },
           );
         } catch (error) {
-          throw new Error("Apple Music authorization did not complete.");
+          throw new Error("Apple Music authorization did not complete. Manual sign-in may be required. Run scripts/musickit_v3_auth.sh first.");
         }
       }
     }

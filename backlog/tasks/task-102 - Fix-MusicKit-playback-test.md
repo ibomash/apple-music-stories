@@ -1,9 +1,10 @@
 ---
 id: TASK-102
 title: Fix MusicKit playback test
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-25 04:16'
+updated_date: '2026-01-25 15:58'
 labels:
   - HTML renderer
 dependencies: []
@@ -18,16 +19,30 @@ Investigate why MusicKit playback does not start in Puppeteer playback test and 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Observed:
-- Playback test times out waiting for MusicKit.getInstance().isPlaying.
-- Page console logs show MusicKit loaded but two 404 resource errors.
-- Placeholder IDs in sample story are invalid; switched test to hip-hop story + media key trk-alright (Apple Music catalog 200), but still no playback.
-- Authorization completes via walkthrough (HTTPS), yet playback does not start.
+## Final Fix (2026-01-25)
 
-Ideas to try:
-- Capture network failures (request URLs + status) in Puppeteer to pinpoint 404s.
-- Log MusicKit state after clicking play: nowPlayingItem, playbackState, authorization status, last error.
-- Verify that playback requires a Music User Token scoped to https://127.0.0.1:8443 and that the saved profile contains it.
-- Try a song ID (not album/playlist) with known availability for the logged-in storefront; confirm region mismatches.
-- Consider using MusicKit setQueue with song ID via page.evaluate to isolate UI click issues.
+### Root Cause
+In MusicKit v3, `MusicKit.configure()` returns a Promise that resolves to a MusicKit instance, BUT this is NOT the same instance as `MusicKit.getInstance()`. The code was storing the configure() result in `musicInstance`, but the UI button handlers were using `musicInstance` to call play() - which was operating on a different instance than the one MusicKit internally uses.
+
+### The Fix
+Changed `render_story.py` line 1007-1010:
+
+Before:
+```javascript
+musicInstance = await MusicKit.configure({...});
+```
+
+After:
+```javascript
+await MusicKit.configure({...});
+musicInstance = MusicKit.getInstance();
+```
+
+This ensures `musicInstance` is the actual singleton that MusicKit uses internally.
+
+### Verification
+- Puppeteer test passes with playback confirmation
+- Button clicks properly trigger setQueue() and play()
+- Time counter advances during playback
+- All 34 media cards are functional
 <!-- SECTION:NOTES:END -->

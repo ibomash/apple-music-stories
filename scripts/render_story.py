@@ -839,9 +839,9 @@ def render_story_html(
         '<div class="playback-time" data-playback-time>0:00 / 0:00</div>'
         "</div>"
         '<div class="playback-controls">'
-        '<button class="playback-button" data-action="prev" disabled>Prev</button>'
-        '<button class="playback-button" data-action="toggle" disabled>Play</button>'
-        '<button class="playback-button" data-action="next" disabled>Next</button>'
+        '<button class="playback-button" data-action="prev" disabled aria-label="Previous">&#9198;</button>'
+        '<button class="playback-button" data-action="toggle" disabled aria-label="Play">&#9654;</button>'
+        '<button class="playback-button" data-action="next" disabled aria-label="Next">&#9197;</button>'
         "</div>"
         "</div>"
     )
@@ -887,8 +887,16 @@ def render_story_html(
         "const setArtwork = (item) => {",
         "  if (!playbackArtwork) { return; }",
         "  if (!item) { playbackArtwork.removeAttribute('src'); return; }",
-        "  const artworkFromItem = item.artworkURL ? (typeof item.artworkURL === 'function' ? item.artworkURL(200, 200) : item.artworkURL) : null;",
-        "  const artwork = artworkFromItem || item.artwork_url || null;",
+        "  let artwork = null;",
+        "  if (item.artwork && item.artwork.url) {",
+        "    artwork = item.artwork.url.replace('{w}', '200').replace('{h}', '200');",
+        "  } else if (typeof item.artworkURL === 'function') {",
+        "    artwork = item.artworkURL(200, 200);",
+        "  } else if (item.artworkURL) {",
+        "    artwork = item.artworkURL.replace('{w}', '200').replace('{h}', '200');",
+        "  } else if (item.artwork_url) {",
+        "    artwork = item.artwork_url;",
+        "  }",
         "  if (artwork) { playbackArtwork.src = artwork; } else { playbackArtwork.removeAttribute('src'); }",
         "};",
         "const formatTime = (value) => {",
@@ -911,7 +919,7 @@ def render_story_html(
         "};",
         "const updateNowPlaying = (music) => {",
         "  if (!toggleButton) { return; }",
-        "  toggleButton.textContent = music && music.isPlaying ? 'Pause' : 'Play';",
+        "  toggleButton.textContent = music && music.isPlaying ? '\\u23F8' : '\\u25B6';",
         "  if (!playbackTitle || !playbackArtist) { return; }",
         "  const nowPlaying = music ? music.nowPlayingItem : null;",
         "  if (nowPlaying) {",
@@ -929,12 +937,22 @@ def render_story_html(
         "};",
         "const playItem = async (item, music) => {",
         "  if (!item || !music) { return; }",
+        "  if (!music.isAuthorized) {",
+        "    console.warn('Cannot play: not authorized');",
+        "    return;",
+        "  }",
         "  const kind = typeMap[item.type];",
         "  if (!kind || !item.apple_music_id) { return; }",
         "  const descriptor = {};",
         "  descriptor[kind] = item.apple_music_id;",
-        "  await music.setQueue(descriptor);",
-        "  await music.play();",
+        "  try {",
+        "    await music.setQueue(descriptor);",
+        "    await music.play();",
+        "  } catch (err) {",
+        "    console.error('Playback error:', err);",
+        "    setStatus('Playback failed: ' + (err.message || 'Unknown error'), true);",
+        "    return;",
+        "  }",
         "  currentIndex = mediaItems.findIndex((entry) => entry.key === item.key);",
         "  setPlaybackText(item);",
         "  updateNowPlaying(music);",
@@ -944,14 +962,12 @@ def render_story_html(
         "  await playItem(mediaItems[index], music);",
         "};",
         "const handlePrev = async (music) => {",
-        "  if (!mediaItems.length) { return; }",
-        "  const nextIndex = currentIndex > 0 ? currentIndex - 1 : mediaItems.length - 1;",
-        "  await selectIndex(nextIndex, music);",
+        "  if (!music || !music.nowPlayingItem) { return; }",
+        "  try { await music.skipToPreviousItem(); } catch (e) { console.warn('skipToPrevious:', e); }",
         "};",
         "const handleNext = async (music) => {",
-        "  if (!mediaItems.length) { return; }",
-        "  const nextIndex = currentIndex >= 0 && currentIndex < mediaItems.length - 1 ? currentIndex + 1 : 0;",
-        "  await selectIndex(nextIndex, music);",
+        "  if (!music || !music.nowPlayingItem) { return; }",
+        "  try { await music.skipToNextItem(); } catch (e) { console.warn('skipToNext:', e); }",
         "};",
         "const handleToggle = async (music) => {",
         "  if (!music) { return; }",
@@ -999,14 +1015,17 @@ def render_story_html(
         "    setStatus('Provide a developer token to enable playback.', false);",
         "    setPlaybackText(null);",
         "  }",
-        "  const bootstrapMusicKit = () => {",
+        "  const bootstrapMusicKit = async () => {",
         "    if (!hasToken) { return false; }",
         "    if (musicInstance) { return true; }",
         "    if (!window.MusicKit || !MusicKit.configure) { return false; }",
-        "    musicInstance = MusicKit.configure({",
-        "      developerToken: developerToken,",
-        "      app: { name: 'Apple Music Stories', build: 'renderer' },",
-        "    });",
+        "    try {",
+        "      await MusicKit.configure({",
+        "        developerToken: developerToken,",
+        "        app: { name: 'Apple Music Stories', build: 'renderer' },",
+        "      });",
+        "      musicInstance = MusicKit.getInstance();",
+        "    } catch (err) { console.error('MusicKit configure error:', err); return false; }",
         "    const updateAuth = () => {",
         "      if (musicInstance.isAuthorized) {",
         "        setStatus('Playback connected.', true);",
@@ -1058,20 +1077,15 @@ def render_story_html(
         "        if (seek) { seek.call(musicInstance, value); }",
         "      });",
         "    }",
-        "    musicInstance.addEventListener(MusicKit.Events.playbackStateDidChange, () => updateNowPlaying(musicInstance));",
-        "    musicInstance.addEventListener(MusicKit.Events.mediaItemDidChange, () => updateNowPlaying(musicInstance));",
+        "    musicInstance.addEventListener('playbackStateDidChange', () => updateNowPlaying(musicInstance));",
+        "    musicInstance.addEventListener('nowPlayingItemDidChange', () => updateNowPlaying(musicInstance));",
         "    updateAuth();",
         "    return true;",
         "  };",
-        "  const started = bootstrapMusicKit();",
-        "  if (started) {",
+        "  document.addEventListener('musickitloaded', async () => {",
         "    window.clearTimeout(timeoutId);",
-        "    console.info('MusicKit loaded.');",
-        "  }",
-        "  document.addEventListener('musickitloaded', () => {",
-        "    window.clearTimeout(timeoutId);",
-        "    console.info('MusicKit loaded.');",
-        "    bootstrapMusicKit();",
+        "    console.info('MusicKit v3 loaded.');",
+        "    await bootstrapMusicKit();",
         "  });",
         "}",
         "</script>",
@@ -1086,7 +1100,7 @@ def render_story_html(
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f"<title>{title}</title>"
         f"{token_meta}"
-        '<script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>'
+        '<script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js" data-web-components async></script>'
         "<style>"
         f"{BASE_CSS}"
         "</style>"
