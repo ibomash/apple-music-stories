@@ -104,6 +104,43 @@ final class StoryParserTests: XCTestCase {
         XCTAssertTrue(parsed.diagnostics.contains { $0.code == "duplicate_media_key" })
     }
 
+    func testParsesMagazineBlocks() {
+        let story = makeStory(body: """
+        <Section id=\"intro\" title=\"Intro\" layout=\"lede\">
+        Opening paragraph.
+
+        <DropQuote attribution=\"Prince\">Purple rain.</DropQuote>
+        <SideNote label=\"Context\">Blog era footnote.</SideNote>
+        <FeatureBox title=\"Box\" summary=\"Summary\" expandable=\"true\">Details.</FeatureBox>
+        <FactGrid>
+          <Fact label=\"Albums\" value=\"15\" />
+        </FactGrid>
+        <Timeline>
+          <TimelineItem year=\"1984\">Purple Rain drops.</TimelineItem>
+        </Timeline>
+        <Gallery>
+          <GalleryImage src=\"assets/one.jpg\" alt=\"Alt\" caption=\"Cap\" />
+        </Gallery>
+        <FullBleed src=\"assets/full.jpg\" alt=\"Full\" caption=\"Cap\" kind=\"image\" />
+        </Section>
+        """)
+
+        let parsed = StoryParser().parse(storyText: story, assetBaseURL: nil)
+
+        XCTAssertNotNil(parsed.document)
+        guard let blocks = parsed.document?.sections.first?.blocks else {
+            return XCTFail("Expected blocks")
+        }
+        XCTAssertEqual(blocks.count, 8)
+        XCTAssertTrue(blocks.contains(where: { if case .dropQuote = $0 { return true } else { return false } }))
+        XCTAssertTrue(blocks.contains(where: { if case .sideNote = $0 { return true } else { return false } }))
+        XCTAssertTrue(blocks.contains(where: { if case .featureBox = $0 { return true } else { return false } }))
+        XCTAssertTrue(blocks.contains(where: { if case .factGrid = $0 { return true } else { return false } }))
+        XCTAssertTrue(blocks.contains(where: { if case .timeline = $0 { return true } else { return false } }))
+        XCTAssertTrue(blocks.contains(where: { if case .gallery = $0 { return true } else { return false } }))
+        XCTAssertTrue(blocks.contains(where: { if case .fullBleed = $0 { return true } else { return false } }))
+    }
+
     private func makeStory(body: String, media: String? = nil) -> String {
         let mediaBlock = media ?? """
           - key: trk-1

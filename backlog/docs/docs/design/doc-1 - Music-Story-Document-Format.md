@@ -44,14 +44,25 @@ schema_version: 0.1
 id: "story-001"
 title: "Story Title"
 subtitle: "Optional dek"
+deck: "Optional longer standfirst"
 authors: ["Author Name"]
 editors: ["Editor Name"]
 publish_date: "2026-01-12"
 tags: ["genre", "theme"]
 locale: "en-US"
+accentColor: "#6b4eff"
+heroGradient:
+  - "#2a0b5f"
+  - "#6b4eff"
+typeRamp: "serif"
 hero_image:
   src: "assets/hero.jpg"
   alt: "Alt text"
+  credit: "Photographer"
+leadArt:
+  src: "assets/lead.jpg"
+  alt: "Alt text"
+  caption: "Caption"
   credit: "Photographer"
 sections:
   - id: intro
@@ -77,10 +88,15 @@ media:
 
 ### Field Requirements & Renderer Fallbacks
 - **Required fields**: `schema_version`, `id`, `title`, `authors`, `publish_date`, `sections`, `media`.
-- **Optional fields**: `subtitle`, `editors`, `tags`, `locale`, `hero_image`, section `layout`, section `lead_media`, media `artwork_url`, media `duration_ms`.
+- **Optional fields**: `subtitle`, `deck`, `editors`, `tags`, `locale`, `accentColor`, `heroGradient`, `typeRamp`, `hero_image`, `leadArt`, section `layout`, section `lead_media`, media `artwork_url`, media `duration_ms`.
 - **Hero image fallback**: If `hero_image` is missing, render with a neutral gradient or brand fallback and hide photo credit.
+- **Lead art fallback**: If `leadArt` is missing, render the title/dek without a lead art block.
 - **Subtitle fallback**: If `subtitle` is missing, omit the dek block and tighten spacing.
+- **Deck fallback**: If `deck` is missing, tighten spacing under the headline.
 - **Editors/tags/locale**: Omit labels if missing; renderer defaults locale to UI locale if not specified.
+- **Accent color fallback**: If `accentColor` is missing, use brand neutral.
+- **Hero gradient fallback**: If `heroGradient` is missing, derive from `accentColor` or use brand neutral.
+- **Type ramp fallback**: If `typeRamp` is missing, use platform default.
 - **Section layout**: Default `layout` to `body` if omitted.
 - **Section lead media**: If `lead_media` is missing or invalid, do not render a hero player for the section.
 - **Media metadata**: If `artwork_url` or `duration_ms` is missing, render the component with title + artist only; optionally show a generic artwork placeholder.
@@ -88,6 +104,45 @@ media:
 ### Required MDX Components (Minimal)
 - `Section`: groups content blocks, sets `id`, `title`, and optional `layout`.
 - `MediaRef`: embeds a media reference by `ref` and optional `intent` (preview/full, autoplay).
+
+### Optional MDX Components (Magazine Blocks)
+- `DropQuote`: pull quote with optional attribution.
+- `SideNote`: margin-style callout note with optional label.
+- `FeatureBox`: expandable or emphasized feature module with title + body.
+- `FactGrid`: grid of label/value facts.
+- `Timeline`: ordered timeline with dated entries.
+- `Gallery`: set of images with captions.
+- `FullBleed`: edge-to-edge image or video block.
+
+### Magazine Block Schemas
+```mdx
+<DropQuote attribution="Prince">Purple rain, purple rain.</DropQuote>
+
+<SideNote label="Context">
+  The 1984 tour redefined arena staging.
+</SideNote>
+
+<FeatureBox title="The Purple Years" summary="A quick recap" expandable="true">
+  The Minneapolis sessions blurred funk, pop, and rock.
+</FeatureBox>
+
+<FactGrid>
+  <Fact label="Albums" value="15" />
+  <Fact label="Grammys" value="7" />
+</FactGrid>
+
+<Timeline>
+  <TimelineItem year="1982">1999 lands and changes the skyline.</TimelineItem>
+  <TimelineItem year="1984">Purple Rain takes over radio.</TimelineItem>
+</Timeline>
+
+<Gallery>
+  <GalleryImage src="assets/purple-1.jpg" alt="Prince live" caption="Purple Rain tour" />
+  <GalleryImage src="assets/purple-2.jpg" alt="Studio" caption="Paisley Park" />
+</Gallery>
+
+<FullBleed src="assets/prince-stage.jpg" alt="Prince on stage" caption="Purple Rain finale" />
+```
 
 ## Open Items / Next Steps
 - Prototype one short-form story in the proposed format and run it through at least one renderer (e.g., magazine web experience) to validate the block model.

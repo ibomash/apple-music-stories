@@ -16,11 +16,12 @@ struct StoryParser {
             return ParsedStory(document: nil, diagnostics: diagnostics)
         }
 
+        let resolver = StoryAssetResolver(baseURL: assetBaseURL)
         var frontMatterParser = FrontMatterParser(text: split.frontMatter)
         let values = frontMatterParser.parse()
         diagnostics.append(contentsOf: frontMatterParser.diagnostics)
 
-        guard let frontMatter = mapFrontMatter(values, assetBaseURL: assetBaseURL, diagnostics: &diagnostics) else {
+        guard let frontMatter = mapFrontMatter(values, resolver: resolver, diagnostics: &diagnostics) else {
             return ParsedStory(document: nil, diagnostics: diagnostics)
         }
 
@@ -28,6 +29,7 @@ struct StoryParser {
         let sections = parseBody(
             split.body,
             sectionMetadata: frontMatter.sections,
+            resolver: resolver,
             diagnostics: &bodyDiagnostics,
         )
         diagnostics.append(contentsOf: bodyDiagnostics)
@@ -38,12 +40,17 @@ struct StoryParser {
             id: frontMatter.id,
             title: frontMatter.title,
             subtitle: frontMatter.subtitle,
+            deck: frontMatter.deck,
             authors: frontMatter.authors,
             editors: frontMatter.editors,
             publishDate: frontMatter.publishDate,
             tags: frontMatter.tags,
             locale: frontMatter.locale,
+            accentColor: frontMatter.accentColor,
+            heroGradient: frontMatter.heroGradient,
+            typeRamp: frontMatter.typeRamp,
             heroImage: frontMatter.heroImage,
+            leadArt: frontMatter.leadArt,
             sections: sections,
             media: frontMatter.media,
         )
@@ -81,11 +88,9 @@ struct StoryParser {
 
     private func mapFrontMatter(
         _ values: [String: Any],
-        assetBaseURL: URL?,
+        resolver: StoryAssetResolver,
         diagnostics: inout [ValidationDiagnostic],
     ) -> FrontMatterData? {
-        let resolver = StoryAssetResolver(baseURL: assetBaseURL)
-
         guard let schemaVersion = stringValue(
             "schema_version",
             from: values,
@@ -99,14 +104,19 @@ struct StoryParser {
         }
 
         let subtitle = stringValue("subtitle", from: values, required: false, diagnostics: &diagnostics)
+        let deck = stringValue("deck", from: values, required: false, diagnostics: &diagnostics)
         let authors = stringList("authors", from: values, required: true, diagnostics: &diagnostics)
         let editors = stringList("editors", from: values, required: false, diagnostics: &diagnostics)
         let publishDateValue = stringValue("publish_date", from: values, required: true, diagnostics: &diagnostics)
         let tags = stringList("tags", from: values, required: false, diagnostics: &diagnostics)
         let locale = stringValue("locale", from: values, required: false, diagnostics: &diagnostics)
+        let accentColor = stringValue("accentColor", from: values, required: false, diagnostics: &diagnostics)
+        let heroGradient = stringList("heroGradient", from: values, required: false, diagnostics: &diagnostics)
+        let typeRamp = parseTypeRamp(values["typeRamp"], diagnostics: &diagnostics)
 
         let publishDate = parsePublishDate(publishDateValue, diagnostics: &diagnostics)
         let heroImage = parseHeroImage(values, resolver: resolver, diagnostics: &diagnostics)
+        let leadArt = parseLeadArt(values, resolver: resolver, diagnostics: &diagnostics)
         let sectionMetadata = parseSectionMetadata(values, diagnostics: &diagnostics)
         if sectionMetadata.isEmpty {
             diagnostics.append(.error(code: "missing_required_field", message: "At least one section is required."))
@@ -129,12 +139,17 @@ struct StoryParser {
             id: storyId,
             title: title,
             subtitle: subtitle,
+            deck: deck,
             authors: authors,
             editors: editors,
             publishDate: publishDate,
             tags: tags,
             locale: locale,
+            accentColor: accentColor,
+            heroGradient: heroGradient,
+            typeRamp: typeRamp,
             heroImage: heroImage,
+            leadArt: leadArt,
             sections: sectionMetadata,
             media: mediaReferences,
         )
@@ -187,6 +202,41 @@ struct StoryParser {
         }
         let resolvedSource = resolver.resolveString(from: src)
         return StoryHeroImage(source: resolvedSource, altText: alt, credit: heroData["credit"])
+    }
+
+    private func parseLeadArt(
+        _ values: [String: Any],
+        resolver: StoryAssetResolver,
+        diagnostics: inout [ValidationDiagnostic],
+    ) -> StoryLeadArt? {
+        guard let artData = values["leadArt"] as? [String: String] else {
+            return nil
+        }
+        guard let src = artData["src"], let alt = artData["alt"] else {
+            diagnostics.append(.warning(code: "invalid_lead_art", message: "leadArt requires src and alt."))
+            return nil
+        }
+        let resolvedSource = resolver.resolveString(from: src)
+        return StoryLeadArt(
+            source: resolvedSource,
+            altText: alt,
+            caption: artData["caption"],
+            credit: artData["credit"],
+        )
+    }
+
+    private func parseTypeRamp(_ value: Any?, diagnostics: inout [ValidationDiagnostic]) -> StoryTypeRamp? {
+        guard let rawValue = value as? String, rawValue.isEmpty == false else {
+            return nil
+        }
+        if let ramp = StoryTypeRamp(rawValue: rawValue.lowercased()) {
+            return ramp
+        }
+        diagnostics.append(.warning(
+            code: "invalid_type_ramp",
+            message: "typeRamp must be serif, sans, or slab.",
+        ))
+        return nil
     }
 
     private func parseSectionMetadata(
@@ -275,6 +325,7 @@ struct StoryParser {
     private func parseBody(
         _ bodyText: String,
         sectionMetadata: [SectionMetadata],
+        resolver: StoryAssetResolver,
         diagnostics: inout [ValidationDiagnostic],
     ) -> [StorySection] {
         let matches = Regex.section.matches(in: bodyText, range: NSRange(bodyText.startIndex..., in: bodyText))
@@ -359,7 +410,12 @@ struct StoryParser {
                 diagnostics: &diagnostics,
             )
             let leadMediaKey = metadata?.leadMediaKey
-            let blocks = parseSectionBlocks(contentText, sectionId: sectionId, diagnostics: &diagnostics)
+            let blocks = parseSectionBlocks(
+                contentText,
+                sectionId: sectionId,
+                resolver: resolver,
+                diagnostics: &diagnostics,
+            )
 
             sections.append(
                 StorySection(
@@ -388,18 +444,71 @@ struct StoryParser {
         return sections
     }
 
+    private enum BlockKind {
+        case media
+        case dropQuote
+        case sideNote
+        case featureBox
+        case factGrid
+        case timeline
+        case gallery
+        case fullBleed
+    }
+
+    private struct BlockPattern {
+        let kind: BlockKind
+        let regex: NSRegularExpression
+        let attributeIndex: Int?
+        let contentIndex: Int?
+
+        static let allCases: [BlockPattern] = [
+            BlockPattern(kind: .media, regex: Regex.mediaRef, attributeIndex: 1, contentIndex: nil),
+            BlockPattern(kind: .dropQuote, regex: Regex.dropQuote, attributeIndex: 1, contentIndex: 2),
+            BlockPattern(kind: .sideNote, regex: Regex.sideNote, attributeIndex: 1, contentIndex: 2),
+            BlockPattern(kind: .featureBox, regex: Regex.featureBox, attributeIndex: 1, contentIndex: 2),
+            BlockPattern(kind: .factGrid, regex: Regex.factGrid, attributeIndex: nil, contentIndex: 1),
+            BlockPattern(kind: .timeline, regex: Regex.timeline, attributeIndex: nil, contentIndex: 1),
+            BlockPattern(kind: .gallery, regex: Regex.gallery, attributeIndex: nil, contentIndex: 1),
+            BlockPattern(kind: .fullBleed, regex: Regex.fullBleed, attributeIndex: 1, contentIndex: nil),
+        ]
+
+        func attributeRange(in text: String, match: NSTextCheckingResult) -> String? {
+            guard let attributeIndex else {
+                return nil
+            }
+            guard let range = Range(match.range(at: attributeIndex), in: text) else {
+                return nil
+            }
+            return String(text[range])
+        }
+
+        func contentRange(in text: String, match: NSTextCheckingResult) -> String? {
+            guard let contentIndex else {
+                return nil
+            }
+            guard let range = Range(match.range(at: contentIndex), in: text) else {
+                return nil
+            }
+            return String(text[range])
+        }
+    }
+
     private func parseSectionBlocks(
         _ contentText: String,
         sectionId: String,
+        resolver: StoryAssetResolver,
         diagnostics: inout [ValidationDiagnostic],
     ) -> [StoryBlock] {
-        let matches = Regex.mediaRef.matches(
-            in: contentText,
-            range: NSRange(contentText.startIndex..., in: contentText),
-        )
         var blocks: [StoryBlock] = []
         var paragraphIndex = 0
         var mediaIndex = 0
+        var dropQuoteIndex = 0
+        var sideNoteIndex = 0
+        var featureBoxIndex = 0
+        var factGridIndex = 0
+        var timelineIndex = 0
+        var galleryIndex = 0
+        var fullBleedIndex = 0
         var lastIndex = contentText.startIndex
 
         func appendParagraphs(from text: String) {
@@ -411,42 +520,112 @@ struct StoryParser {
             }
         }
 
-        for match in matches {
-            guard let matchRange = Range(match.range, in: contentText),
-                  let attributeRange = Range(match.range(at: 1), in: contentText)
-            else {
-                continue
+        func nextMatch(from index: String.Index) -> (BlockPattern, NSTextCheckingResult)? {
+            let searchRange = NSRange(index..<contentText.endIndex, in: contentText)
+            var candidates: [(BlockPattern, NSTextCheckingResult)] = []
+            for pattern in BlockPattern.allCases {
+                if let match = pattern.regex.firstMatch(in: contentText, range: searchRange) {
+                    candidates.append((pattern, match))
+                }
             }
+            return candidates.min { lhs, rhs in
+                lhs.1.range.location < rhs.1.range.location
+            }
+        }
 
+        while let (pattern, match) = nextMatch(from: lastIndex) {
+            guard let matchRange = Range(match.range, in: contentText) else {
+                break
+            }
             let leadingText = String(contentText[lastIndex ..< matchRange.lowerBound])
             appendParagraphs(from: leadingText)
             lastIndex = matchRange.upperBound
 
-            let attributeText = String(contentText[attributeRange])
+            let attributeText = pattern.attributeRange(in: contentText, match: match) ?? ""
             let attributes = parseAttributes(from: attributeText)
-            guard let referenceKey = attributes["ref"] else {
-                diagnostics.append(.error(
-                    code: "missing_media_ref",
-                    message: "<MediaRef> is missing required ref attribute.",
-                    location: sectionId,
-                ))
-                continue
-            }
+            let bodyText = pattern.contentRange(in: contentText, match: match) ?? ""
 
-            let intent = parseIntent(attributes["intent"], diagnostics: &diagnostics, referenceKey: referenceKey)
-            let identifier = "\(sectionId)-media-\(mediaIndex)"
-            mediaIndex += 1
-            blocks.append(.media(id: identifier, referenceKey: referenceKey, intent: intent))
+            switch pattern.kind {
+            case .media:
+                guard let referenceKey = attributes["ref"] else {
+                    diagnostics.append(.error(
+                        code: "missing_media_ref",
+                        message: "<MediaRef> is missing required ref attribute.",
+                        location: sectionId,
+                    ))
+                    continue
+                }
+                let intent = parseIntent(attributes["intent"], diagnostics: &diagnostics, referenceKey: referenceKey)
+                let identifier = "\(sectionId)-media-\(mediaIndex)"
+                mediaIndex += 1
+                blocks.append(.media(id: identifier, referenceKey: referenceKey, intent: intent))
+            case .dropQuote:
+                let identifier = "\(sectionId)-dropquote-\(dropQuoteIndex)"
+                dropQuoteIndex += 1
+                let text = bodyText.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                blocks.append(.dropQuote(id: identifier, text: text, attribution: attributes["attribution"]))
+            case .sideNote:
+                let identifier = "\(sectionId)-sidenote-\(sideNoteIndex)"
+                sideNoteIndex += 1
+                let text = bodyText.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                blocks.append(.sideNote(id: identifier, text: text, label: attributes["label"]))
+            case .featureBox:
+                let identifier = "\(sectionId)-feature-\(featureBoxIndex)"
+                featureBoxIndex += 1
+                let body = bodyText.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                let expandable = (attributes["expandable"] ?? "false").lowercased() == "true"
+                blocks.append(.featureBox(
+                    id: identifier,
+                    title: attributes["title"],
+                    summary: attributes["summary"],
+                    expandable: expandable,
+                    body: body,
+                ))
+            case .factGrid:
+                let identifier = "\(sectionId)-facts-\(factGridIndex)"
+                factGridIndex += 1
+                let facts = parseFactGrid(from: bodyText, diagnostics: &diagnostics, sectionId: sectionId)
+                blocks.append(.factGrid(id: identifier, facts: facts))
+            case .timeline:
+                let identifier = "\(sectionId)-timeline-\(timelineIndex)"
+                timelineIndex += 1
+                let items = parseTimeline(from: bodyText, diagnostics: &diagnostics, sectionId: sectionId)
+                blocks.append(.timeline(id: identifier, items: items))
+            case .gallery:
+                let identifier = "\(sectionId)-gallery-\(galleryIndex)"
+                galleryIndex += 1
+                let images = parseGallery(
+                    from: bodyText,
+                    resolver: resolver,
+                    diagnostics: &diagnostics,
+                    sectionId: sectionId,
+                )
+                blocks.append(.gallery(id: identifier, images: images))
+            case .fullBleed:
+                let identifier = "\(sectionId)-fullbleed-\(fullBleedIndex)"
+                fullBleedIndex += 1
+                if let block = parseFullBleed(
+                    attributes: attributes,
+                    resolver: resolver,
+                    diagnostics: &diagnostics,
+                    sectionId: sectionId,
+                    identifier: identifier,
+                ) {
+                    blocks.append(block)
+                }
+            }
         }
 
         let trailingText = String(contentText[lastIndex...])
         appendParagraphs(from: trailingText)
 
-        let unsupportedContent = Regex.mediaRef.stringByReplacingMatches(
-            in: contentText,
-            range: NSRange(contentText.startIndex..., in: contentText),
-            withTemplate: "",
-        )
+        let unsupportedContent = Regex.strippingPatterns.reduce(contentText) { partial, regex in
+            regex.stringByReplacingMatches(
+                in: partial,
+                range: NSRange(partial.startIndex..., in: partial),
+                withTemplate: "",
+            )
+        }
         if unsupportedContent.contains("<") {
             diagnostics.append(.warning(
                 code: "unsupported_html",
@@ -455,6 +634,119 @@ struct StoryParser {
         }
 
         return blocks
+    }
+
+    private func parseFactGrid(
+        from text: String,
+        diagnostics: inout [ValidationDiagnostic],
+        sectionId: String,
+    ) -> [StoryFact] {
+        let matches = Regex.fact.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        var facts: [StoryFact] = []
+        for match in matches {
+            guard let attributeRange = Range(match.range(at: 1), in: text) else {
+                continue
+            }
+            let attributes = parseAttributes(from: String(text[attributeRange]))
+            guard let label = attributes["label"], let value = attributes["value"] else {
+                diagnostics.append(.warning(
+                    code: "invalid_fact",
+                    message: "Fact entries require label and value in section '\(sectionId)'.",
+                ))
+                continue
+            }
+            facts.append(StoryFact(label: label, value: value))
+        }
+        return facts
+    }
+
+    private func parseTimeline(
+        from text: String,
+        diagnostics: inout [ValidationDiagnostic],
+        sectionId: String,
+    ) -> [StoryTimelineItem] {
+        let matches = Regex.timelineItem.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        var items: [StoryTimelineItem] = []
+        for match in matches {
+            guard let attributeRange = Range(match.range(at: 1), in: text),
+                  let contentRange = Range(match.range(at: 2), in: text)
+            else {
+                continue
+            }
+            let attributes = parseAttributes(from: String(text[attributeRange]))
+            guard let year = attributes["year"] else {
+                diagnostics.append(.warning(
+                    code: "invalid_timeline_item",
+                    message: "Timeline items require year in section '\(sectionId)'.",
+                ))
+                continue
+            }
+            let body = String(text[contentRange]).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            items.append(StoryTimelineItem(year: year, text: body))
+        }
+        return items
+    }
+
+    private func parseGallery(
+        from text: String,
+        resolver: StoryAssetResolver,
+        diagnostics: inout [ValidationDiagnostic],
+        sectionId: String,
+    ) -> [StoryGalleryImage] {
+        let matches = Regex.galleryImage.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        var images: [StoryGalleryImage] = []
+        for match in matches {
+            guard let attributeRange = Range(match.range(at: 1), in: text) else {
+                continue
+            }
+            let attributes = parseAttributes(from: String(text[attributeRange]))
+            guard let src = attributes["src"], let alt = attributes["alt"] else {
+                diagnostics.append(.warning(
+                    code: "invalid_gallery_image",
+                    message: "GalleryImage requires src and alt in section '\(sectionId)'.",
+                ))
+                continue
+            }
+            images.append(StoryGalleryImage(
+                source: resolver.resolveString(from: src),
+                altText: alt,
+                caption: attributes["caption"],
+                credit: attributes["credit"],
+            ))
+        }
+        return images
+    }
+
+    private func parseFullBleed(
+        attributes: [String: String],
+        resolver: StoryAssetResolver,
+        diagnostics: inout [ValidationDiagnostic],
+        sectionId: String,
+        identifier: String,
+    ) -> StoryBlock? {
+        guard let src = attributes["src"], let alt = attributes["alt"] else {
+            diagnostics.append(.warning(
+                code: "invalid_full_bleed",
+                message: "FullBleed requires src and alt in section '\(sectionId)'.",
+            ))
+            return nil
+        }
+        let kindValue = (attributes["kind"] ?? "image").lowercased()
+        let kind = StoryFullBleedKind(rawValue: kindValue) ?? .image
+        if StoryFullBleedKind(rawValue: kindValue) == nil && kindValue.isEmpty == false {
+            diagnostics.append(.warning(
+                code: "invalid_full_bleed_kind",
+                message: "FullBleed kind must be image or video in section '\(sectionId)'.",
+            ))
+        }
+        return .fullBleed(
+            id: identifier,
+            source: resolver.resolveString(from: src),
+            altText: alt,
+            caption: attributes["caption"],
+            credit: attributes["credit"],
+            kind: kind,
+        )
     }
 
     private func parseAttributes(from text: String) -> [String: String] {
@@ -543,12 +835,17 @@ private struct FrontMatterData {
     let id: String
     let title: String
     let subtitle: String?
+    let deck: String?
     let authors: [String]
     let editors: [String]
     let publishDate: Date
     let tags: [String]
     let locale: String?
+    let accentColor: String?
+    let heroGradient: [String]
+    let typeRamp: StoryTypeRamp?
     let heroImage: StoryHeroImage?
+    let leadArt: StoryLeadArt?
     let sections: [SectionMetadata]
     let media: [StoryMediaReference]
 }
@@ -622,9 +919,11 @@ private struct FrontMatterParser {
                 switch key {
                 case "hero_image":
                     values[key] = parseObject(indentationLevel: 2)
+                case "leadArt":
+                    values[key] = parseObject(indentationLevel: 2)
                 case "sections", "media":
                     values[key] = parseListOfMaps(indentationLevel: 2)
-                case "authors", "editors", "tags":
+                case "authors", "editors", "tags", "heroGradient":
                     values[key] = parseStringList(indentationLevel: 2)
                 default:
                     values[key] = ""
@@ -801,11 +1100,121 @@ private enum Regex {
     static let mediaRef: NSRegularExpression = {
         do {
             return try NSRegularExpression(
-                pattern: "<MediaRef\\s+([^/>]+?)\\s*/>",
+                pattern: "<MediaRef\\s+([^>]+?)\\s*/>",
                 options: [.dotMatchesLineSeparators],
             )
         } catch {
             preconditionFailure("Invalid media ref regex: \(error)")
+        }
+    }()
+
+    static let dropQuote: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<DropQuote(?:\\s+([^>]+))?>(.*?)</DropQuote>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid drop quote regex: \(error)")
+        }
+    }()
+
+    static let sideNote: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<SideNote(?:\\s+([^>]+))?>(.*?)</SideNote>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid side note regex: \(error)")
+        }
+    }()
+
+    static let featureBox: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<FeatureBox(?:\\s+([^>]+))?>(.*?)</FeatureBox>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid feature box regex: \(error)")
+        }
+    }()
+
+    static let factGrid: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<FactGrid(?:\\s+[^>]*)?>(.*?)</FactGrid>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid fact grid regex: \(error)")
+        }
+    }()
+
+    static let fact: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<Fact\\s+([^>]+?)\\s*/>",
+                options: [],
+            )
+        } catch {
+            preconditionFailure("Invalid fact regex: \(error)")
+        }
+    }()
+
+    static let timeline: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<Timeline(?:\\s+[^>]*)?>(.*?)</Timeline>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid timeline regex: \(error)")
+        }
+    }()
+
+    static let timelineItem: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<TimelineItem\\s+([^>]+)>(.*?)</TimelineItem>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid timeline item regex: \(error)")
+        }
+    }()
+
+    static let gallery: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<Gallery(?:\\s+[^>]*)?>(.*?)</Gallery>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid gallery regex: \(error)")
+        }
+    }()
+
+    static let galleryImage: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<GalleryImage\\s+([^>]+?)\\s*/>",
+                options: [],
+            )
+        } catch {
+            preconditionFailure("Invalid gallery image regex: \(error)")
+        }
+    }()
+
+    static let fullBleed: NSRegularExpression = {
+        do {
+            return try NSRegularExpression(
+                pattern: "<FullBleed\\s+([^>]+?)\\s*/>",
+                options: [.dotMatchesLineSeparators],
+            )
+        } catch {
+            preconditionFailure("Invalid full bleed regex: \(error)")
         }
     }()
 
@@ -819,6 +1228,17 @@ private enum Regex {
             preconditionFailure("Invalid attribute regex: \(error)")
         }
     }()
+
+    static let strippingPatterns: [NSRegularExpression] = [
+        mediaRef,
+        dropQuote,
+        sideNote,
+        featureBox,
+        factGrid,
+        timeline,
+        gallery,
+        fullBleed,
+    ]
 }
 
 private enum DateFormatters {
