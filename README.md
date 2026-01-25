@@ -45,3 +45,5 @@ Pass the Apple Music developer token via `APPLE_MUSIC_DEVELOPER_TOKEN` or `--dev
 Override the base URL with `STORY_BASE_URL` if you are serving on a different host/port.
 
 For Apple Music authentication, export `APPLE_MUSIC_DEVELOPER_TOKEN` (or set `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`) and run `scripts/apple_music_auth_walkthrough.sh` once to establish a persistent session in `.auth/apple-music`, then rerun the Puppeteer test as needed.
+
+To run the Puppeteer smoke test end-to-end with MusicKit enabled, start the server with `APPLE_MUSIC_DEVELOPER_TOKEN` (or `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`) set and then run `node scripts/puppeteer_story_test.js`.
