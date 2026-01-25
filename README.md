@@ -47,3 +47,5 @@ Override the base URL with `STORY_BASE_URL` if you are serving on a different ho
 For Apple Music authentication, export `APPLE_MUSIC_DEVELOPER_TOKEN` (or set `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`) and run `scripts/apple_music_auth_walkthrough.sh` once to establish a persistent session in `.auth/apple-music`, then rerun the Puppeteer test as needed.
 
 To run the Puppeteer smoke test end-to-end with MusicKit enabled, start the server with `APPLE_MUSIC_DEVELOPER_TOKEN` (or `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`) set and then run `node scripts/puppeteer_story_test.js`.
+
+The playback check expects HTTPS and a previously authorized user profile; on failure the script prints page console logs to help diagnose MusicKit authorization issues. By default it plays `stories/hip-hop-changed-the-game/story.mdx` media key `trk-alright`; override with `APPLE_MUSIC_STORY_ID` and `APPLE_MUSIC_MEDIA_KEY` if needed.

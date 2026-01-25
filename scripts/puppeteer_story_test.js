@@ -6,6 +6,9 @@ const BASE_URL = process.env.STORY_BASE_URL || "http://127.0.0.1:8000";
 const USER_DATA_DIR = process.env.PUPPETEER_USER_DATA_DIR || "";
 const SESSION_PATH = process.env.APPLE_MUSIC_SESSION_PATH || "";
 const INTERACTIVE = process.env.APPLE_MUSIC_INTERACTIVE === "1";
+const SKIP_PLAYBACK = process.env.APPLE_MUSIC_SKIP_PLAYBACK === "1";
+const PLAYBACK_STORY_ID = process.env.APPLE_MUSIC_STORY_ID || "hip-hop-changed-the-game";
+const PLAYBACK_MEDIA_KEY = process.env.APPLE_MUSIC_MEDIA_KEY || "trk-alright";
 
 const resolveHeadless = (value) => {
   if (!value) {
@@ -66,9 +69,14 @@ const waitForEnter = async () => {
   process.stdin.pause();
 };
 
+const pageLogs = [];
+const pageErrors = [];
+
 const run = async () => {
   const launchOptions = {
     headless: resolveHeadless(process.env.PUPPETEER_HEADLESS),
+    ignoreHTTPSErrors: true,
+    args: ["--ignore-certificate-errors"],
   };
 
   if (USER_DATA_DIR) {
@@ -79,6 +87,13 @@ const run = async () => {
 
   try {
     const page = await browser.newPage();
+    page.on("console", (message) => {
+      pageLogs.push(`[${message.type()}] ${message.text()}`);
+    });
+    page.on("pageerror", (error) => {
+      pageErrors.push(`[pageerror] ${error.message}`);
+    });
+
     const session = await readSession();
     if (session?.cookies?.length) {
       await page.setCookie(...session.cookies);
@@ -90,11 +105,19 @@ const run = async () => {
     await page.goto(BASE_URL, { waitUntil: "networkidle2" });
 
     const indexTitle = await page.title();
-    const firstStoryHref = await page.$eval("a.story-card", (link) =>
+    const storySelector = !INTERACTIVE && !SKIP_PLAYBACK
+      ? `a.story-card[href="/stories/${PLAYBACK_STORY_ID}"]`
+      : "a.story-card";
+    const firstStoryHref = await page.$eval(storySelector, (link) =>
       link.getAttribute("href"),
     );
 
     if (!firstStoryHref) {
+      if (!INTERACTIVE && !SKIP_PLAYBACK) {
+        throw new Error(
+          `Story ${PLAYBACK_STORY_ID} not found on index page.`,
+        );
+      }
       throw new Error("No story cards found on index page.");
     }
 
@@ -105,6 +128,72 @@ const run = async () => {
     if (INTERACTIVE) {
       console.log("Complete Apple Music sign-in in the browser window.");
       await waitForEnter();
+    }
+
+    if (!INTERACTIVE && !SKIP_PLAYBACK) {
+      try {
+        await page.waitForFunction(
+          () => Boolean(window.MusicKit),
+          { timeout: 15000 },
+        );
+      } catch (error) {
+        const status = await page.evaluate(() => {
+          const statusEl = document.querySelector("[data-auth-status]");
+          return {
+            message: statusEl ? statusEl.textContent : "",
+            secure: window.isSecureContext,
+            protocol: window.location.protocol,
+          };
+        });
+        throw new Error(
+          `MusicKit JS did not load. Status: ${status.message || ""} Secure: ${status.secure} Protocol: ${status.protocol}.`,
+        );
+      }
+
+      const instanceReady = await page.evaluate(() => {
+        if (!window.MusicKit) {
+          return false;
+        }
+        try {
+          return Boolean(window.MusicKit.getInstance());
+        } catch (error) {
+          return false;
+        }
+      });
+      if (!instanceReady) {
+        const status = await page.evaluate(() => {
+          const statusEl = document.querySelector("[data-auth-status]");
+          return statusEl ? statusEl.textContent : "";
+        });
+        throw new Error(
+          `MusicKit instance is not configured. Status: ${status || ""}`,
+        );
+      }
+
+      const authButton = await page.$("[data-action=authorize]");
+      if (!authButton) {
+        throw new Error("Authorize button not found on story page.");
+      }
+
+      const isAuthorized = await page.evaluate(() => {
+        const instance = window.MusicKit ? window.MusicKit.getInstance() : null;
+        return Boolean(instance && instance.isAuthorized);
+      });
+
+      if (!isAuthorized) {
+        await authButton.click();
+        try {
+          await page.waitForFunction(
+            () => {
+              const instance = window.MusicKit ? window.MusicKit.getInstance() : null;
+              return Boolean(instance && instance.isAuthorized);
+            },
+            { timeout: 15000 },
+          );
+        } catch (error) {
+          throw new Error("Apple Music authorization did not complete.");
+        }
+      }
     }
 
     const storyTitle = await page.$eval(".title", (title) =>
@@ -118,12 +207,52 @@ const run = async () => {
       (cards) => cards.length,
     );
 
+    if (!INTERACTIVE && !SKIP_PLAYBACK) {
+      const mediaSelector = `.media-card[data-media-key="${PLAYBACK_MEDIA_KEY}"] [data-action=play]`;
+      const firstPlayButton = await page.$(mediaSelector);
+      if (!firstPlayButton) {
+        throw new Error(
+          `Play button not found for media key ${PLAYBACK_MEDIA_KEY}.`,
+        );
+      }
+
+      try {
+        await page.waitForFunction(
+          (selector) => {
+            const button = document.querySelector(selector);
+            return Boolean(button && !button.disabled);
+          },
+          { timeout: 15000 },
+          mediaSelector,
+        );
+      } catch (error) {
+        throw new Error("Play button is disabled. Check Apple Music authorization.");
+      }
+
+      await firstPlayButton.click();
+      await page.waitForFunction(
+        () => {
+          if (!window.MusicKit) {
+            return false;
+          }
+          const instance = window.MusicKit.getInstance();
+          return Boolean(instance && instance.isPlaying);
+        },
+        { timeout: 15000 },
+      );
+    }
+
     console.log("Puppeteer story check ok:");
     console.log(`- Index title: ${indexTitle}`);
     console.log(`- Story URL: ${storyUrl}`);
     console.log(`- Story title: ${storyTitle}`);
     console.log(`- Sections: ${sectionCount}`);
     console.log(`- Media cards: ${mediaCardCount}`);
+    if (!INTERACTIVE && !SKIP_PLAYBACK) {
+      console.log("- Playback started: true");
+    } else {
+      console.log("- Playback started: skipped");
+    }
 
     await writeSession(await page.cookies());
   } finally {
@@ -134,5 +263,13 @@ const run = async () => {
 run().catch((error) => {
   console.error("Puppeteer story check failed:");
   console.error(error);
+  if (pageErrors.length) {
+    console.error("Page errors:");
+    pageErrors.forEach((entry) => console.error(entry));
+  }
+  if (pageLogs.length) {
+    console.error("Page console logs:");
+    pageLogs.forEach((entry) => console.error(entry));
+  }
   process.exit(1);
 });
