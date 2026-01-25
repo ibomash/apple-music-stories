@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MusicKit JS Sample</title>
+  <meta name="apple-music-developer-token" content="">
+  <meta name="apple-music-has-token" content="false">
+  <script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js" data-web-components async></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    h1 { margin-bottom: 8px; }
+    .status {
+      padding: 12px;
+      margin: 16px 0;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    @media (prefers-color-scheme: dark) {
+      .status { background: #2a2a2a; }
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #007aff;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: #666;
+    }
+    .playback-info {
+      padding: 16px;
+      margin: 16px 0;
+      background: #1c1c1e;
+      color: white;
+      border-radius: 12px;
+    }
+    .playback-info .title {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .playback-info .artist {
+      color: rgba(255,255,255,0.7);
+    }
+    .playback-info .time {
+      margin-top: 8px;
+      font-family: monospace;
+    }
+    .log {
+      margin-top: 24px;
+      padding: 12px;
+      background: #1a1a1a;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .log-entry { margin: 4px 0; }
+    .log-entry.error { color: #f66; }
+    .log-entry.warn { color: #fc0; }
+  </style>
+</head>
+<body>
+  <h1>MusicKit JS Sample</h1>
+  <p>Minimal Apple Music playback test.</p>
+
+  <div class="status" data-status>
+    Initializing MusicKit...
+  </div>
+
+  <div class="controls">
+    <button data-action="authorize" disabled>Authorize</button>
+    <button data-action="play" disabled>Play</button>
+    <button data-action="pause" class="secondary" disabled>Pause</button>
+    <button data-action="stop" class="secondary" disabled>Stop</button>
+  </div>
+
+  <div class="playback-info" data-playback-info style="display:none">
+    <div class="title" data-now-playing-title>-</div>
+    <div class="artist" data-now-playing-artist>-</div>
+    <div class="time" data-playback-time>0:00 / 0:00</div>
+  </div>
+
+  <div class="log" data-log></div>
+
+  <script>
+    // Configuration
+    const SAMPLE_SONG_ID = '1440871886'; // Kendrick Lamar - Alright (clean version)
+    
+    // DOM elements
+    const statusEl = document.querySelector('[data-status]');
+    const authorizeBtn = document.querySelector('[data-action="authorize"]');
+    const playBtn = document.querySelector('[data-action="play"]');
+    const pauseBtn = document.querySelector('[data-action="pause"]');
+    const stopBtn = document.querySelector('[data-action="stop"]');
+    const playbackInfo = document.querySelector('[data-playback-info]');
+    const nowPlayingTitle = document.querySelector('[data-now-playing-title]');
+    const nowPlayingArtist = document.querySelector('[data-now-playing-artist]');
+    const playbackTime = document.querySelector('[data-playback-time]');
+    const logEl = document.querySelector('[data-log]');
+
+    // State
+    let music = null;
+    let progressInterval = null;
+
+    // Logging
+    function log(message, level = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${level}`;
+      entry.textContent = `[${new Date().toISOString().slice(11,19)}] ${message}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(`[MusicKit Sample] ${message}`);
+    }
+
+    // Format time
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Update playback time display
+    function updatePlaybackTime() {
+      if (!music) return;
+      const current = music.currentPlaybackTime || 0;
+      const duration = music.currentPlaybackDuration || 0;
+      playbackTime.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
+    }
+
+    // Update UI based on MusicKit state
+    function updateUI() {
+      if (!music) return;
+
+      const isAuthorized = music.isAuthorized;
+      const isPlaying = music.isPlaying;
+      const nowPlaying = music.nowPlayingItem;
+
+      statusEl.textContent = isAuthorized 
+        ? (isPlaying ? 'Playing' : (nowPlaying ? 'Paused' : 'Ready'))
+        : 'Not authorized';
+
+      authorizeBtn.textContent = isAuthorized ? 'Sign Out' : 'Authorize';
+      authorizeBtn.disabled = false;
+
+      playBtn.disabled = !isAuthorized;
+      pauseBtn.disabled = !isAuthorized || !isPlaying;
+      stopBtn.disabled = !isAuthorized || !nowPlaying;
+
+      if (nowPlaying) {
+        playbackInfo.style.display = 'block';
+        nowPlayingTitle.textContent = nowPlaying.title || 'Unknown';
+        nowPlayingArtist.textContent = nowPlaying.artistName || 'Unknown Artist';
+      } else {
+        playbackInfo.style.display = 'none';
+      }
+
+      updatePlaybackTime();
+    }
+
+    // Initialize MusicKit v3 (async API)
+    async function initMusicKit() {
+      log('Waiting for MusicKit v3...');
+      
+      // Get developer token from meta tag
+      const tokenMeta = document.querySelector('meta[name="apple-music-developer-token"]');
+      const developerToken = tokenMeta?.content;
+      
+      if (!developerToken) {
+        log('ERROR: No developer token found in meta tag', 'error');
+        statusEl.textContent = 'Error: No developer token';
+        return;
+      }
+
+      try {
+        // MusicKit v3 uses async configure
+        music = await MusicKit.configure({
+          developerToken: developerToken,
+          app: {
+            name: 'MusicKit Sample',
+            build: '1.0.0'
+          }
+        });
+
+        log('MusicKit v3 configured successfully');
+        log(`Storefront: ${music.storefrontId}`);
+        log(`Authorized: ${music.isAuthorized}`);
+
+        // Set up event listeners (v3 uses same Events namespace)
+        music.addEventListener('playbackStateDidChange', (event) => {
+          log(`Playback state changed: isPlaying=${music.isPlaying}, state=${music.playbackState}`);
+          updateUI();
+        });
+
+        music.addEventListener('nowPlayingItemDidChange', (event) => {
+          const item = music.nowPlayingItem;
+          log(`Now playing changed: ${item ? item.title : 'null'}`);
+          updateUI();
+        });
+
+        music.addEventListener('authorizationStatusDidChange', (event) => {
+          log(`Authorization status changed: ${music.isAuthorized}`);
+          updateUI();
+        });
+
+        // Start progress timer
+        progressInterval = setInterval(updatePlaybackTime, 1000);
+
+        updateUI();
+
+      } catch (error) {
+        log(`ERROR: ${error.message}`, 'error');
+        statusEl.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    // Event handlers
+    authorizeBtn.addEventListener('click', async () => {
+      if (!music) return;
+      
+      try {
+        if (music.isAuthorized) {
+          log('Signing out...');
+          await music.unauthorize();
+          log('Signed out');
+        } else {
+          log('Requesting authorization...');
+          await music.authorize();
+          log('Authorization complete');
+        }
+        updateUI();
+      } catch (error) {
+        log(`Authorization error: ${error.message}`, 'error');
+      }
+    });
+
+    playBtn.addEventListener('click', async () => {
+      if (!music) return;
+
+      try {
+        log(`Setting queue with song ID: ${SAMPLE_SONG_ID}`);
+        await music.setQueue({ song: SAMPLE_SONG_ID });
+        log('Queue set, starting playback...');
+        await music.play();
+        log(`Play started. isPlaying: ${music.isPlaying}`);
+        updateUI();
+      } catch (error) {
+        log(`Playback error: ${error.message}`, 'error');
+      }
+    });
+
+    pauseBtn.addEventListener('click', async () => {
+      if (!music) return;
+      
+      try {
+        log('Pausing...');
+        await music.pause();
+        log('Paused');
+        updateUI();
+      } catch (error) {
+        log(`Pause error: ${error.message}`, 'error');
+      }
+    });
+
+    stopBtn.addEventListener('click', async () => {
+      if (!music) return;
+      
+      try {
+        log('Stopping...');
+        await music.stop();
+        log('Stopped');
+        updateUI();
+      } catch (error) {
+        log(`Stop error: ${error.message}`, 'error');
+      }
+    });
+
+    // Initialize on musickitloaded event (v3 fires this when ready)
+    document.addEventListener('musickitloaded', () => {
+      log('musickitloaded event fired');
+      initMusicKit();
+    });
+  </script>
+</body>
+</html>

@@ -8,6 +8,15 @@ LocalSecrets.xcconfig
 # macOS metadata
 .DS_Store
 
+# Node.js
+node_modules/
+npm-debug.log
+
+# Runtime artifacts
+logs/
+scripts/__pycache__/
+.auth/
+
 # XcodeGen output
 ios/MusicStoryRenderer/*.xcodeproj
 ios/MusicStoryRenderer/*.xcworkspace

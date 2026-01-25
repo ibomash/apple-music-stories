@@ -36,3 +36,18 @@ MusicKit JS requires a secure context. Start the server with HTTPS:
 - Visit: `https://<host>:8443`
 
 Pass the Apple Music developer token via `APPLE_MUSIC_DEVELOPER_TOKEN` or `--developer-token`.
+
+### Puppeteer smoke test
+- Install Node dependencies: `npm install`
+- Start the server: `uv run scripts/render_story.py serve --host 127.0.0.1 --port 8000`
+- Run the test: `node scripts/puppeteer_story_test.js`
+
+Override the base URL with `STORY_BASE_URL` if you are serving on a different host/port.
+
+For Apple Music authentication, export `APPLE_MUSIC_DEVELOPER_TOKEN` (or set `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`) and run `scripts/musickit_v3_auth.sh` once to establish a persistent session in `.auth/apple-music`, then rerun the Puppeteer test as needed. This script opens a browser window where you need to sign in with your Apple ID.
+
+To run the Puppeteer smoke test end-to-end with MusicKit enabled, start the server with `APPLE_MUSIC_DEVELOPER_TOKEN` (or `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`) set and then run `node scripts/puppeteer_story_test.js`.
+
+The playback check expects HTTPS and a previously authorized user profile; on failure the script prints page console logs to help diagnose MusicKit authorization issues. By default it plays `stories/hip-hop-changed-the-game/story.mdx` media key `trk-alright`; override with `APPLE_MUSIC_STORY_ID` and `APPLE_MUSIC_MEDIA_KEY` if needed.
+
+Note: The renderer uses MusicKit v3. If you previously authorized with MusicKit v1, you'll need to re-authorize with v3 using the auth script above.
