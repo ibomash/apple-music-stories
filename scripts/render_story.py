@@ -31,6 +31,18 @@ import yaml
 FRONT_MATTER_DELIMITER = "---"
 SECTION_RE = re.compile(r"<Section\s+([^>]+)>(.*?)</Section>", re.DOTALL)
 MEDIA_REF_RE = re.compile(r"<MediaRef\s+([^/>]+?)\s*/>", re.DOTALL)
+DROP_QUOTE_RE = re.compile(r"<DropQuote(?:\s+([^>]+))?>(.*?)</DropQuote>", re.DOTALL)
+SIDE_NOTE_RE = re.compile(r"<SideNote(?:\s+([^>]+))?>(.*?)</SideNote>", re.DOTALL)
+FEATURE_BOX_RE = re.compile(r"<FeatureBox(?:\s+([^>]+))?>(.*?)</FeatureBox>", re.DOTALL)
+FACT_GRID_RE = re.compile(r"<FactGrid(?:\s+[^>]*)?>(.*?)</FactGrid>", re.DOTALL)
+FACT_RE = re.compile(r"<Fact\s+([^/>]+?)\s*/>")
+TIMELINE_RE = re.compile(r"<Timeline(?:\s+[^>]*)?>(.*?)</Timeline>", re.DOTALL)
+TIMELINE_ITEM_RE = re.compile(
+    r"<TimelineItem\s+([^>]+)>(.*?)</TimelineItem>", re.DOTALL
+)
+GALLERY_RE = re.compile(r"<Gallery(?:\s+[^>]*)?>(.*?)</Gallery>", re.DOTALL)
+GALLERY_IMAGE_RE = re.compile(r"<GalleryImage\s+([^/>]+?)\s*/>")
+FULL_BLEED_RE = re.compile(r"<FullBleed\s+([^/>]+?)\s*/>", re.DOTALL)
 ATTR_RE = re.compile(r"(\w+)=\"([^\"]*)\"")
 DEFAULT_STORY_DIRS = ("stories", "examples")
 
@@ -43,19 +55,37 @@ BASE_CSS = """
   --ink: #111111;
   --muted: #6f6f6f;
   --surface: #f7f4f0;
+  --hero-gradient: linear-gradient(120deg, #101010 0%, #1c1c1c 100%);
+  --font-serif: "Iowan Old Style", "Palatino", "Georgia", serif;
+  --font-sans: "SF Pro Text", "Inter", "Helvetica Neue", sans-serif;
+  --font-slab: "Rockwell", "Iowan Old Style", "Georgia", serif;
+  --font-body: var(--font-serif);
+  --font-display: var(--font-serif);
 }
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
-  font-family: "Iowan Old Style", "Palatino", "Georgia", serif;
+  font-family: var(--font-body);
   color: var(--ink);
   background: #fcfbf9;
 }
+.type-sans {
+  --font-body: var(--font-sans);
+  --font-display: "SF Pro Display", "Inter", "Helvetica Neue", sans-serif;
+}
+.type-serif {
+  --font-body: var(--font-serif);
+  --font-display: var(--font-serif);
+}
+.type-slab {
+  --font-body: var(--font-slab);
+  --font-display: var(--font-slab);
+}
 .hero {
   padding: 72px 96px 48px;
-  background: linear-gradient(120deg, #101010 0%, #1c1c1c 100%);
+  background: var(--hero-gradient);
   color: #ffffff;
 }
 .hero-image {
@@ -74,6 +104,29 @@ body {
   color: rgba(255, 255, 255, 0.7);
   margin-top: 8px;
 }
+.lead-art {
+  margin-top: 28px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.35);
+}
+.lead-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.lead-art-caption {
+  font-size: 0.9rem;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.lead-art-credit {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+}
 .container {
   max-width: 1100px;
   margin: 0 auto;
@@ -88,6 +141,14 @@ body {
 .title {
   font-size: clamp(2.6rem, 4vw, 4.2rem);
   margin: 16px 0 8px;
+  font-family: var(--font-display);
+}
+.deck {
+  font-size: 1.1rem;
+  max-width: 720px;
+  line-height: 1.6;
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.82);
 }
 .subtitle {
   font-size: 1.3rem;
@@ -101,6 +162,7 @@ body {
 .section-header {
   font-size: 1.8rem;
   margin-bottom: 20px;
+  font-family: var(--font-display);
 }
 .section.lede .section-header {
   font-size: 2.2rem;
@@ -111,6 +173,163 @@ body {
 }
 .section-body p {
   margin: 0 0 24px;
+}
+.dropquote {
+  margin: 32px 0;
+  padding: 24px 28px;
+  border-radius: 20px;
+  border-left: 4px solid var(--accent);
+  background: #ffffff;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.08);
+}
+.dropquote p {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.6;
+  font-style: italic;
+}
+.dropquote-attribution {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font-display);
+}
+.side-note {
+  margin: 24px 0;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: #ffffff;
+}
+.side-note-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  font-family: var(--font-display);
+  margin-bottom: 8px;
+}
+.feature-box {
+  margin: 28px 0;
+  padding: 22px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: var(--surface);
+}
+.feature-box summary {
+  list-style: none;
+  cursor: pointer;
+}
+.feature-box summary::-webkit-details-marker {
+  display: none;
+}
+.feature-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.feature-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+.feature-summary {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.feature-body {
+  margin-top: 12px;
+}
+.fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+.fact-item {
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  text-align: center;
+}
+.fact-value {
+  font-size: 1.4rem;
+  font-family: var(--font-display);
+  color: var(--accent);
+}
+.fact-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.timeline {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+}
+.timeline-item {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.timeline-year {
+  font-family: var(--font-display);
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+.timeline-content p {
+  margin: 0;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+  margin: 28px 0;
+}
+.gallery-item {
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+}
+.gallery-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.gallery-caption {
+  padding: 12px 14px 14px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.gallery-credit {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.45);
+}
+.fullbleed {
+  margin: 32px -32px;
+}
+.fullbleed-media {
+  width: 100%;
+  display: block;
+}
+.fullbleed-caption {
+  padding: 12px 24px 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.fullbleed-credit {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.45);
 }
 .media-card {
   display: grid;
@@ -290,6 +509,9 @@ body {
   }
   .container {
     padding: 40px 24px 72px;
+  }
+  .fullbleed {
+    margin: 28px -24px;
   }
   .media-card {
     grid-template-columns: 1fr;
@@ -561,25 +783,264 @@ def build_apple_music_link(media: StoryMedia) -> str:
     return f"https://music.apple.com/{region}/{kind}/{media.apple_music_id}"
 
 
+def render_markdown_fragment(text: str, asset_prefix: str | None) -> str:
+    rendered = markdown.markdown(text, extensions=["extra"])
+    return rewrite_asset_urls(rendered, asset_prefix)
+
+
+def render_drop_quote(
+    attrs: dict[str, str], content: str, asset_prefix: str | None
+) -> str:
+    body = render_markdown_fragment(content.strip(), asset_prefix)
+    attribution = attrs.get("attribution")
+    attribution_html = (
+        f'<div class="dropquote-attribution">{html.escape(attribution)}</div>'
+        if attribution
+        else ""
+    )
+    return f'<figure class="dropquote">{body}{attribution_html}</figure>'
+
+
+def render_side_note(
+    attrs: dict[str, str], content: str, asset_prefix: str | None
+) -> str:
+    label = attrs.get("label")
+    label_html = (
+        f'<div class="side-note-label">{html.escape(label)}</div>' if label else ""
+    )
+    body = render_markdown_fragment(content.strip(), asset_prefix)
+    return f'<aside class="side-note">{label_html}{body}</aside>'
+
+
+def render_feature_box(
+    attrs: dict[str, str], content: str, asset_prefix: str | None
+) -> str:
+    title = attrs.get("title")
+    summary = attrs.get("summary")
+    expandable = attrs.get("expandable", "false").lower() == "true"
+    title_html = (
+        f'<div class="feature-title">{html.escape(title)}</div>' if title else ""
+    )
+    summary_html = (
+        f'<div class="feature-summary">{html.escape(summary)}</div>' if summary else ""
+    )
+    body_html = render_markdown_fragment(content.strip(), asset_prefix)
+    if expandable:
+        header_parts = "".join(
+            part
+            for part in (
+                f'<span class="feature-title">{html.escape(title)}</span>'
+                if title
+                else "",
+                f'<span class="feature-summary">{html.escape(summary)}</span>'
+                if summary
+                else "",
+            )
+            if part
+        )
+        if not header_parts:
+            header_parts = '<span class="feature-title">Details</span>'
+        return (
+            '<details class="feature-box" data-expandable="true">'
+            f'<summary class="feature-header">{header_parts}</summary>'
+            f'<div class="feature-body">{body_html}</div>'
+            "</details>"
+        )
+    header_html = (
+        f'<div class="feature-header">{title_html}{summary_html}</div>'
+        if title_html or summary_html
+        else ""
+    )
+    return (
+        '<div class="feature-box">'
+        f"{header_html}"
+        f'<div class="feature-body">{body_html}</div>'
+        "</div>"
+    )
+
+
+def render_fact_grid(content: str) -> str:
+    facts: list[str] = []
+    for match in FACT_RE.finditer(content):
+        attrs = parse_attrs(match.group(1))
+        label = attrs.get("label")
+        value = attrs.get("value")
+        if not label or not value:
+            continue
+        facts.append(
+            '<div class="fact-item">'
+            f'<div class="fact-value">{html.escape(value)}</div>'
+            f'<div class="fact-label">{html.escape(label)}</div>'
+            "</div>"
+        )
+    if not facts:
+        return '<div class="fact-grid"></div>'
+    return f'<div class="fact-grid">{"".join(facts)}</div>'
+
+
+def render_timeline(content: str, asset_prefix: str | None) -> str:
+    items: list[str] = []
+    for match in TIMELINE_ITEM_RE.finditer(content):
+        attrs = parse_attrs(match.group(1))
+        year = attrs.get("year", "")
+        body = render_markdown_fragment(match.group(2).strip(), asset_prefix)
+        items.append(
+            '<div class="timeline-item">'
+            f'<div class="timeline-year">{html.escape(year)}</div>'
+            f'<div class="timeline-content">{body}</div>'
+            "</div>"
+        )
+    if not items:
+        return '<div class="timeline"></div>'
+    return f'<div class="timeline">{"".join(items)}</div>'
+
+
+def render_gallery(content: str, asset_prefix: str | None) -> str:
+    items: list[str] = []
+    for match in GALLERY_IMAGE_RE.finditer(content):
+        attrs = parse_attrs(match.group(1))
+        src = resolve_asset_url(attrs.get("src"), asset_prefix)
+        alt = attrs.get("alt", "")
+        caption = attrs.get("caption")
+        credit = attrs.get("credit")
+        if not src:
+            continue
+        caption_parts = []
+        if caption:
+            caption_parts.append(html.escape(caption))
+        if credit:
+            caption_parts.append(
+                f'<span class="gallery-credit">{html.escape(credit)}</span>'
+            )
+        caption_html = (
+            f'<figcaption class="gallery-caption">{"".join(caption_parts)}</figcaption>'
+            if caption_parts
+            else ""
+        )
+        items.append(
+            '<figure class="gallery-item">'
+            f'<img src="{html.escape(src)}" alt="{html.escape(alt)}">'
+            f"{caption_html}"
+            "</figure>"
+        )
+    if not items:
+        return '<div class="gallery"></div>'
+    return f'<div class="gallery">{"".join(items)}</div>'
+
+
+def render_full_bleed(attrs: dict[str, str], asset_prefix: str | None) -> str:
+    src = resolve_asset_url(attrs.get("src"), asset_prefix)
+    if not src:
+        return ""
+    alt = attrs.get("alt", "")
+    caption = attrs.get("caption")
+    credit = attrs.get("credit")
+    kind = attrs.get("kind", "image")
+    if kind == "video":
+        media_html = (
+            f'<video class="fullbleed-media" src="{html.escape(src)}" controls></video>'
+        )
+    else:
+        media_html = (
+            f'<img class="fullbleed-media" src="{html.escape(src)}" '
+            f'alt="{html.escape(alt)}">'
+        )
+    caption_parts = []
+    if caption:
+        caption_parts.append(html.escape(caption))
+    if credit:
+        caption_parts.append(
+            f'<span class="fullbleed-credit">{html.escape(credit)}</span>'
+        )
+    caption_html = (
+        f'<figcaption class="fullbleed-caption">{"".join(caption_parts)}</figcaption>'
+        if caption_parts
+        else ""
+    )
+    return f'<figure class="fullbleed">{media_html}{caption_html}</figure>'
+
+
+BLOCK_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("media", MEDIA_REF_RE),
+    ("dropquote", DROP_QUOTE_RE),
+    ("sidenote", SIDE_NOTE_RE),
+    ("featurebox", FEATURE_BOX_RE),
+    ("factgrid", FACT_GRID_RE),
+    ("timeline", TIMELINE_RE),
+    ("gallery", GALLERY_RE),
+    ("fullbleed", FULL_BLEED_RE),
+]
+
+
+def find_next_block(raw_body: str, start: int) -> tuple[str, re.Match[str]] | None:
+    matches: list[tuple[int, str, re.Match[str]]] = []
+    for kind, regex in BLOCK_PATTERNS:
+        match = regex.search(raw_body, start)
+        if match:
+            matches.append((match.start(), kind, match))
+    if not matches:
+        return None
+    _, kind, match = min(matches, key=lambda item: item[0])
+    return kind, match
+
+
+def build_gradient(value: Any) -> str | None:
+    colors: list[str] = []
+    if isinstance(value, str):
+        if value.strip():
+            colors.append(value.strip())
+    elif isinstance(value, list):
+        colors = [str(item).strip() for item in value if str(item).strip()]
+    if not colors:
+        return None
+    if len(colors) == 1:
+        return f"linear-gradient(120deg, {colors[0]} 0%, {colors[0]} 100%)"
+    step = 100 / (len(colors) - 1)
+    stops = ", ".join(
+        f"{color} {index * step:.0f}%" for index, color in enumerate(colors)
+    )
+    return f"linear-gradient(120deg, {stops})"
+
+
 def render_section_body(
     raw_body: str, media_lookup: dict[str, StoryMedia], asset_prefix: str | None = None
 ) -> str:
     parts: list[str] = []
     cursor = 0
-    for match in MEDIA_REF_RE.finditer(raw_body):
+    while True:
+        next_block = find_next_block(raw_body, cursor)
+        if not next_block:
+            tail = raw_body[cursor:].strip()
+            if tail:
+                parts.append(render_markdown_fragment(tail, asset_prefix))
+            break
+        kind, match = next_block
         text = raw_body[cursor : match.start()].strip()
         if text:
-            rendered = markdown.markdown(text, extensions=["extra"])
-            parts.append(rewrite_asset_urls(rendered, asset_prefix))
-        attrs = parse_attrs(match.group(1))
-        ref = attrs.get("ref", "")
-        parts.append(render_media_card(ref, media_lookup.get(ref), asset_prefix))
+            parts.append(render_markdown_fragment(text, asset_prefix))
+        if kind == "media":
+            attrs = parse_attrs(match.group(1))
+            ref = attrs.get("ref", "")
+            parts.append(render_media_card(ref, media_lookup.get(ref), asset_prefix))
+        elif kind == "dropquote":
+            attrs = parse_attrs(match.group(1) or "")
+            parts.append(render_drop_quote(attrs, match.group(2), asset_prefix))
+        elif kind == "sidenote":
+            attrs = parse_attrs(match.group(1) or "")
+            parts.append(render_side_note(attrs, match.group(2), asset_prefix))
+        elif kind == "featurebox":
+            attrs = parse_attrs(match.group(1) or "")
+            parts.append(render_feature_box(attrs, match.group(2), asset_prefix))
+        elif kind == "factgrid":
+            parts.append(render_fact_grid(match.group(1)))
+        elif kind == "timeline":
+            parts.append(render_timeline(match.group(1), asset_prefix))
+        elif kind == "gallery":
+            parts.append(render_gallery(match.group(1), asset_prefix))
+        elif kind == "fullbleed":
+            attrs = parse_attrs(match.group(1) or "")
+            parts.append(render_full_bleed(attrs, asset_prefix))
         cursor = match.end()
-
-    tail = raw_body[cursor:].strip()
-    if tail:
-        rendered = markdown.markdown(tail, extensions=["extra"])
-        parts.append(rewrite_asset_urls(rendered, asset_prefix))
     return "\n".join(parts)
 
 
@@ -757,12 +1218,21 @@ def render_story_html(
 ) -> str:
     title = html.escape(str(story.meta.get("title", "Untitled")))
     subtitle = story.meta.get("subtitle")
+    deck = story.meta.get("deck")
     authors = ", ".join(story.meta.get("authors", []))
     publish_date = html.escape(str(story.meta.get("publish_date", "")))
+    accent_color = story.meta.get("accentColor")
+    hero_gradient = build_gradient(story.meta.get("heroGradient"))
+    type_ramp = str(story.meta.get("typeRamp", "")).lower()
     hero = story.meta.get("hero_image") or {}
     hero_src = resolve_asset_url(hero.get("src"), asset_prefix)
     hero_alt = html.escape(str(hero.get("alt", "")))
     hero_credit = hero.get("credit")
+    lead_art = story.meta.get("leadArt") or {}
+    lead_art_src = resolve_asset_url(lead_art.get("src"), asset_prefix)
+    lead_art_alt = html.escape(str(lead_art.get("alt", "")))
+    lead_art_caption = lead_art.get("caption")
+    lead_art_credit = lead_art.get("credit")
     developer_token = developer_token or ""
     has_token = bool(developer_token)
 
@@ -796,9 +1266,31 @@ def render_story_html(
                 f'<div class="hero-credit">{html.escape(str(hero_credit))}</div>'
             )
 
+    lead_art_block = ""
+    if lead_art_src:
+        caption_parts = []
+        if lead_art_caption:
+            caption_parts.append(html.escape(str(lead_art_caption)))
+        if lead_art_credit:
+            caption_parts.append(
+                f'<span class="lead-art-credit">{html.escape(str(lead_art_credit))}</span>'
+            )
+        caption_html = (
+            f'<figcaption class="lead-art-caption">{"".join(caption_parts)}</figcaption>'
+            if caption_parts
+            else ""
+        )
+        lead_art_block = (
+            '<figure class="lead-art">'
+            f'<img src="{html.escape(lead_art_src)}" alt="{lead_art_alt}">'
+            f"{caption_html}"
+            "</figure>"
+        )
+
     subtitle_html = (
         f'<div class="subtitle">{html.escape(str(subtitle))}</div>' if subtitle else ""
     )
+    deck_html = f'<div class="deck">{html.escape(str(deck))}</div>' if deck else ""
 
     byline_parts: list[str] = []
     if authors:
@@ -856,6 +1348,17 @@ def render_story_html(
         '<meta name="apple-music-developer-token" content="{token}">'
         '<meta name="apple-music-has-token" content="{has_token}">'
     ).format(token=html.escape(developer_token), has_token=str(has_token).lower())
+    style_overrides: list[str] = []
+    if accent_color:
+        style_overrides.append(f":root {{ --accent: {accent_color}; }}")
+    if hero_gradient:
+        style_overrides.append(f":root {{ --hero-gradient: {hero_gradient}; }}")
+    style_block = BASE_CSS
+    if style_overrides:
+        style_block = f"{BASE_CSS}\n" + "\n".join(style_overrides)
+    body_class = ""
+    if type_ramp in {"serif", "sans", "slab"}:
+        body_class = f' class="type-{type_ramp}"'
     script_lines = [
         "<script>",
         "const banner = document.querySelector('[data-auth-banner]');",
@@ -1088,16 +1591,18 @@ def render_story_html(
         f"{token_meta}"
         '<script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>'
         "<style>"
-        f"{BASE_CSS}"
+        f"{style_block}"
         "</style>"
         "</head>"
-        "<body>"
+        f"<body{body_class}>"
         '<header class="hero">'
         '<div class="meta">Music Story</div>'
         f'<h1 class="title">{title}</h1>'
+        f"{deck_html}"
         f"{subtitle_html}"
         f"{byline_html}"
         f"{hero_block}"
+        f"{lead_art_block}"
         f"{auth_banner}"
         "</header>"
         '<main class="container">'
