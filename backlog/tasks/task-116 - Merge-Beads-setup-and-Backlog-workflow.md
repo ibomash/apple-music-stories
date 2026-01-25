@@ -1,9 +1,10 @@
 ---
 id: TASK-116
 title: Merge Beads setup and Backlog workflow
-status: Now
+status: Done
 assignee: []
 created_date: '2026-01-25 22:28'
+updated_date: '2026-01-25 22:30'
 labels: []
 dependencies: []
 ---
@@ -23,3 +24,11 @@ Commit the Beads/Backlog workflow doc and tracking task from eager-orchid, merge
 - In main, stage only Beads setup outputs and related workflow docs.
 - Record final summary in the task.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+- Committed workflow doc and tracking tasks on eager-orchid, then merged into main with merge commit "beads + Backlog experiment" (bf8d28d).
+- Added Beads tracking files (.beads/, .gitattributes) and landing-the-plane instructions in AGENTS.md (commit 4c7713a).
+- Left unrelated local changes in main untouched.
+<!-- SECTION:FINAL_SUMMARY:END -->
