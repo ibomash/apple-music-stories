@@ -1,6 +1,7 @@
 import AVKit
 import Foundation
 import SwiftUI
+import UIKit
 
 struct StoryRendererView: View {
     let document: StoryDocument
@@ -12,34 +13,39 @@ struct StoryRendererView: View {
     private let scrollSpaceName = "story-scroll"
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
-                    StoryHeaderView(document: document, heroGradient: heroGradient)
-                        .id(headerAnchorID)
-                        .storyScrollAnchor(id: headerAnchorID, in: scrollSpaceName)
-                    ForEach(document.sections) { section in
-                        StorySectionView(
-                            section: section,
-                            mediaLookup: document.mediaByKey,
-                            playbackController: playbackController,
-                            scrollSpaceName: scrollSpaceName,
-                            accentColor: accentColor,
-                        )
+        GeometryReader { proxy in
+            let screenWidth = min(proxy.size.width, UIScreen.main.bounds.width)
+            let contentWidth = max(screenWidth - 48, 0)
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 32) {
+                        StoryHeaderView(document: document, heroGradient: heroGradient, contentWidth: contentWidth)
+                            .id(headerAnchorID)
+                            .storyScrollAnchor(id: headerAnchorID, in: scrollSpaceName)
+                        ForEach(document.sections) { section in
+                            StorySectionView(
+                                section: section,
+                                mediaLookup: document.mediaByKey,
+                                playbackController: playbackController,
+                                scrollSpaceName: scrollSpaceName,
+                                accentColor: accentColor,
+                            )
+                        }
                     }
+                    .frame(width: contentWidth, alignment: .leading)
+                    .clipped()
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 32)
+                    .fontDesign(document.typeRamp?.fontDesign)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 32)
-                .fontDesign(document.typeRamp?.fontDesign)
-            }
-            .coordinateSpace(name: scrollSpaceName)
-            .tint(accentColor)
-            .onAppear {
-                restoreBookmarkIfNeeded(using: proxy)
-            }
-            .onPreferenceChange(StoryScrollAnchorPreferenceKey.self) { offsets in
-                storeBookmarkIfNeeded(offsets)
+                .coordinateSpace(name: scrollSpaceName)
+                .tint(accentColor)
+                .onAppear {
+                    restoreBookmarkIfNeeded(using: scrollProxy)
+                }
+                .onPreferenceChange(StoryScrollAnchorPreferenceKey.self) { offsets in
+                    storeBookmarkIfNeeded(offsets)
+                }
             }
         }
     }
@@ -107,11 +113,11 @@ struct StoryRendererView: View {
 struct StoryHeaderView: View {
     let document: StoryDocument
     let heroGradient: [Color]
+    let contentWidth: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            StoryHeroImageView(heroImage: document.heroImage, gradientColors: heroGradient)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            StoryHeroImageView(heroImage: document.heroImage, gradientColors: heroGradient, width: contentWidth)
             VStack(alignment: .leading, spacing: 8) {
                 Text(document.title)
                     .font(.largeTitle.bold())
@@ -131,7 +137,7 @@ struct StoryHeaderView: View {
             }
             if let leadArt = document.leadArt {
                 StoryLeadArtView(leadArt: leadArt)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(width: contentWidth, alignment: .leading)
             }
         }
     }
@@ -150,6 +156,7 @@ struct StoryHeaderView: View {
 struct StoryHeroImageView: View {
     let heroImage: StoryHeroImage?
     let gradientColors: [Color]
+    let width: CGFloat
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -174,7 +181,7 @@ struct StoryHeroImageView: View {
                     .padding(12)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 260)
+        .frame(width: width, height: 260)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .accessibilityLabel(heroImage?.altText ?? "Story hero image")
     }
