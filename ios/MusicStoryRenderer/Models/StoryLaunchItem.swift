@@ -25,6 +25,7 @@ struct StoryMetadataSnapshot: Identifiable, Hashable, Codable {
     let publishDate: Date
     let tags: [String]
     let heroImage: StoryHeroImage?
+    let accentColor: String?
 
     init(document: StoryDocument) {
         id = document.id
@@ -34,6 +35,7 @@ struct StoryMetadataSnapshot: Identifiable, Hashable, Codable {
         publishDate = document.publishDate
         tags = document.tags
         heroImage = document.heroImage
+        accentColor = document.accentColor
     }
 }
 

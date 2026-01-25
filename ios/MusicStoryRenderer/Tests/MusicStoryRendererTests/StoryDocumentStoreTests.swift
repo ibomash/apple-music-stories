@@ -2,6 +2,14 @@
 import XCTest
 
 final class StoryDocumentStoreTests: XCTestCase {
+    func testStoryMetadataSnapshotIncludesAccentColor() {
+        let document = StoryDocument.sample()
+
+        let snapshot = StoryMetadataSnapshot(document: document)
+
+        XCTAssertEqual(snapshot.accentColor, document.accentColor)
+    }
+
     func testLoadRemoteStorySuccess() async {
         let url = URL(string: "https://example.com/story.mdx")!
         let storyText = makeStory(body: """

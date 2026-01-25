@@ -50,20 +50,20 @@ private struct StoryLaunchBackground: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color.indigo.opacity(0.35),
-                    Color.blue.opacity(0.2),
+                    Color.gray.opacity(0.18),
+                    Color.gray.opacity(0.08),
                     Color.white,
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing,
             )
             Circle()
-                .fill(Color.white.opacity(0.75))
+                .fill(Color.white.opacity(0.85))
                 .frame(width: 240, height: 240)
                 .blur(radius: 120)
                 .offset(x: -140, y: -200)
             Circle()
-                .fill(Color.blue.opacity(0.3))
+                .fill(Color.gray.opacity(0.2))
                 .frame(width: 260, height: 260)
                 .blur(radius: 130)
                 .offset(x: 160, y: 220)
@@ -237,8 +237,12 @@ private struct StoryCatalogCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(.ultraThinMaterial)
+        .background(StoryCardBackground(accentColor: accentColor, cornerRadius: 20))
         .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var accentColor: Color? {
+        Color(hex: item.metadata.accentColor)
     }
 
     private var metadataLine: String {
@@ -367,10 +371,14 @@ private struct StoryLoadedCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background(.ultraThinMaterial)
+            .background(StoryCardBackground(accentColor: accentColor, cornerRadius: 24))
             .clipShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(.plain)
+    }
+
+    private var accentColor: Color? {
+        Color(hex: document.accentColor)
     }
 
     private var metadataLine: String {
@@ -553,6 +561,64 @@ private struct StoryDiagnosticsSection: View {
         .padding(16)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct StoryCardBackground: View {
+    let accentColor: Color?
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(.ultraThinMaterial)
+            if let accentColor {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                accentColor.opacity(0.46),
+                                accentColor.opacity(0.30),
+                                accentColor.opacity(0.16),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+        }
+    }
+}
+
+private extension Color {
+    init?(hex: String?) {
+        guard let hex, hex.isEmpty == false else {
+            return nil
+        }
+        let trimmed = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard trimmed.count == 6 || trimmed.count == 8 else {
+            return nil
+        }
+        var value: UInt64 = 0
+        guard Scanner(string: trimmed).scanHexInt64(&value) else {
+            return nil
+        }
+        let red: Double
+        let green: Double
+        let blue: Double
+        let alpha: Double
+        if trimmed.count == 8 {
+            red = Double((value & 0xFF00_0000) >> 24) / 255
+            green = Double((value & 0x00FF_0000) >> 16) / 255
+            blue = Double((value & 0x0000_FF00) >> 8) / 255
+            alpha = Double(value & 0x0000_00FF) / 255
+        } else {
+            red = Double((value & 0xFF00_00) >> 16) / 255
+            green = Double((value & 0x00FF_00) >> 8) / 255
+            blue = Double(value & 0x0000_FF) / 255
+            alpha = 1
+        }
+        self.init(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
     }
 }
 
