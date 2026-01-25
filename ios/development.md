@@ -40,6 +40,26 @@ ios/MusicStoryRenderer/
      -destination "platform=iOS Simulator,name=iPhone 16"
    ```
 
+### Snapshot tests
+
+Run the snapshot suite with deterministic settings baked into the tests (en_US locale, GMT time zone, medium dynamic type size, light mode).
+
+Record baselines:
+```bash
+cd ios/MusicStoryRenderer
+SNAPSHOT_RECORDING=1 xcodebuild test -project MusicStoryRenderer.xcodeproj \
+  -scheme MusicStoryRenderer \
+  -destination "platform=iOS Simulator,name=iPhone 16"
+```
+
+Verify baselines:
+```bash
+cd ios/MusicStoryRenderer
+xcodebuild test -project MusicStoryRenderer.xcodeproj \
+  -scheme MusicStoryRenderer \
+  -destination "platform=iOS Simulator,name=iPhone 16"
+```
+
 4. **Agent builds**: Use XcodeBuildMCP tools after generating the project and setting session defaults. Example flow:
    ```
    XcodeBuildMCP_discover_projs workspaceRoot="/Users/ibomash/repos-ibomash/apple-music-stories/ios"

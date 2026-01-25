@@ -5,9 +5,36 @@ import XCTest
 
 @MainActor
 final class StorySnapshotTests: XCTestCase {
+    private let isRecording = ProcessInfo.processInfo.environment["SNAPSHOT_RECORDING"] == "1"
+    private let snapshotLocale = Locale(identifier: "en_US")
+    private let snapshotTimeZone = TimeZone(secondsFromGMT: 0) ?? .current
+    private let snapshotSizeCategory: ContentSizeCategory = .medium
+    private var previousTimeZone: TimeZone?
+    private var previousLocale: String?
+    private var previousLanguages: [String]?
+
     override func setUp() {
         super.setUp()
-        SnapshotTesting.isRecording = ProcessInfo.processInfo.environment["SNAPSHOT_RECORDING"] == "1"
+        SnapshotTesting.isRecording = isRecording
+        previousTimeZone = NSTimeZone.default
+        previousLocale = UserDefaults.standard.string(forKey: "AppleLocale")
+        previousLanguages = UserDefaults.standard.array(forKey: "AppleLanguages") as? [String]
+        NSTimeZone.default = snapshotTimeZone
+        UserDefaults.standard.set(snapshotLocale.identifier, forKey: "AppleLocale")
+        UserDefaults.standard.set([snapshotLocale.identifier], forKey: "AppleLanguages")
+    }
+
+    override func tearDown() {
+        if let previousTimeZone {
+            NSTimeZone.default = previousTimeZone
+        }
+        if let previousLocale {
+            UserDefaults.standard.set(previousLocale, forKey: "AppleLocale")
+        }
+        if let previousLanguages {
+            UserDefaults.standard.set(previousLanguages, forKey: "AppleLanguages")
+        }
+        super.tearDown()
     }
 
     func testStoryRendererView() {
@@ -84,9 +111,23 @@ final class StorySnapshotTests: XCTestCase {
     }
 
     private func assertSnapshot<V: View>(for view: V, named name: String) {
-        let controller = UIHostingController(rootView: view)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = snapshotTimeZone
+        let normalizedView = view
+            .environment(\.locale, snapshotLocale)
+            .environment(\.timeZone, snapshotTimeZone)
+            .environment(\.calendar, calendar)
+            .environment(\.layoutDirection, .leftToRight)
+            .environment(\.sizeCategory, snapshotSizeCategory)
+            .environment(\.colorScheme, .light)
+        let controller = UIHostingController(rootView: normalizedView)
         controller.view.backgroundColor = .systemBackground
-        SnapshotTesting.assertSnapshot(matching: controller, as: .image(on: .iPhone13), named: name)
+        SnapshotTesting.assertSnapshot(
+            matching: controller,
+            as: .image(on: .iPhone13),
+            named: name,
+            record: isRecording
+        )
     }
 
     private func makeStoryDocument() -> StoryDocument {
