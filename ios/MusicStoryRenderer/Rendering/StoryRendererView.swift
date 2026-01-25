@@ -1,3 +1,5 @@
+import AVKit
+import Foundation
 import SwiftUI
 
 struct StoryRendererView: View {
@@ -13,7 +15,7 @@ struct StoryRendererView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 32) {
-                    StoryHeaderView(document: document)
+                    StoryHeaderView(document: document, heroGradient: heroGradient)
                         .id(headerAnchorID)
                         .storyScrollAnchor(id: headerAnchorID, in: scrollSpaceName)
                     ForEach(document.sections) { section in
@@ -22,14 +24,17 @@ struct StoryRendererView: View {
                             mediaLookup: document.mediaByKey,
                             playbackController: playbackController,
                             scrollSpaceName: scrollSpaceName,
+                            accentColor: accentColor,
                         )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 32)
+                .fontDesign(document.typeRamp?.fontDesign)
             }
             .coordinateSpace(name: scrollSpaceName)
+            .tint(accentColor)
             .onAppear {
                 restoreBookmarkIfNeeded(using: proxy)
             }
@@ -37,6 +42,18 @@ struct StoryRendererView: View {
                 storeBookmarkIfNeeded(offsets)
             }
         }
+    }
+
+    private var accentColor: Color {
+        Color(hex: document.accentColor) ?? Color.indigo
+    }
+
+    private var heroGradient: [Color] {
+        let colors = document.heroGradient.compactMap { Color(hex: $0) }
+        if colors.isEmpty {
+            return [Color.indigo.opacity(0.8), Color.purple.opacity(0.8)]
+        }
+        return colors
     }
 
     private var headerAnchorID: String {
@@ -89,14 +106,20 @@ struct StoryRendererView: View {
 
 struct StoryHeaderView: View {
     let document: StoryDocument
+    let heroGradient: [Color]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            StoryHeroImageView(heroImage: document.heroImage)
+            StoryHeroImageView(heroImage: document.heroImage, gradientColors: heroGradient)
                 .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 8) {
                 Text(document.title)
                     .font(.largeTitle.bold())
+                if let deck = document.deck {
+                    Text(deck)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
                 if let subtitle = document.subtitle {
                     Text(subtitle)
                         .font(.title3)
@@ -105,6 +128,10 @@ struct StoryHeaderView: View {
                 Text(metadataLine)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+            if let leadArt = document.leadArt {
+                StoryLeadArtView(leadArt: leadArt)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -122,6 +149,7 @@ struct StoryHeaderView: View {
 
 struct StoryHeroImageView: View {
     let heroImage: StoryHeroImage?
+    let gradientColors: [Color]
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -153,11 +181,41 @@ struct StoryHeroImageView: View {
 
     private var heroFallback: some View {
         LinearGradient(
-            colors: [Color.indigo.opacity(0.8), Color.purple.opacity(0.8)],
+            colors: gradientColors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing,
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct StoryLeadArtView: View {
+    let leadArt: StoryLeadArt
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let url = URL(string: leadArt.source) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.2))
+                }
+                .frame(maxWidth: .infinity, maxHeight: 220)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            if let caption = leadArt.caption {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let credit = leadArt.credit {
+                Text(credit)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -166,6 +224,7 @@ struct StorySectionView: View {
     let mediaLookup: [String: StoryMediaReference]
     let playbackController: AppleMusicPlaybackController
     let scrollSpaceName: String
+    let accentColor: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -186,6 +245,7 @@ struct StorySectionView: View {
                     mediaLookup: mediaLookup,
                     playbackController: playbackController,
                     scrollSpaceName: scrollSpaceName,
+                    accentColor: accentColor,
                 )
             }
         }
@@ -199,6 +259,7 @@ struct StoryBlockView: View {
     let mediaLookup: [String: StoryMediaReference]
     let playbackController: AppleMusicPlaybackController
     let scrollSpaceName: String
+    let accentColor: Color
 
     var body: some View {
         Group {
@@ -213,10 +274,262 @@ struct StoryBlockView: View {
                 } else {
                     MissingMediaReferenceView(referenceKey: referenceKey)
                 }
+            case let .dropQuote(_, text, attribution):
+                DropQuoteView(text: text, attribution: attribution, accentColor: accentColor)
+            case let .sideNote(_, text, label):
+                SideNoteView(text: text, label: label, accentColor: accentColor)
+            case let .featureBox(_, title, summary, expandable, content):
+                FeatureBoxView(
+                    title: title,
+                    summary: summary,
+                    expandable: expandable,
+                    content: content,
+                )
+            case let .factGrid(_, facts):
+                FactGridView(facts: facts, accentColor: accentColor)
+            case let .timeline(_, items):
+                TimelineView(items: items, accentColor: accentColor)
+            case let .gallery(_, images):
+                GalleryView(images: images)
+            case let .fullBleed(_, source, altText, caption, credit, kind):
+                FullBleedView(
+                    source: source,
+                    altText: altText,
+                    caption: caption,
+                    credit: credit,
+                    kind: kind,
+                )
             }
         }
         .id(block.id)
         .storyScrollAnchor(id: block.id, in: scrollSpaceName)
+    }
+}
+
+struct DropQuoteView: View {
+    let text: String
+    let attribution: String?
+    let accentColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(.init(text))
+                .font(.title3)
+                .italic()
+            if let attribution {
+                Text(attribution.uppercased())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(accentColor.opacity(0.4), lineWidth: 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.thinMaterial)
+                )
+        )
+    }
+}
+
+struct SideNoteView: View {
+    let text: String
+    let label: String?
+    let accentColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let label {
+                Text(label.uppercased())
+                    .font(.caption)
+                    .foregroundStyle(accentColor)
+            }
+            Text(.init(text))
+                .font(.callout)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.ultraThinMaterial)
+        )
+    }
+}
+
+struct FeatureBoxView: View {
+    let title: String?
+    let summary: String?
+    let expandable: Bool
+    let content: String
+
+    var body: some View {
+        if expandable {
+            DisclosureGroup {
+                Text(.init(content))
+                    .font(.body)
+            } label: {
+                FeatureBoxHeader(title: title, summary: summary)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.thinMaterial)
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                FeatureBoxHeader(title: title, summary: summary)
+                Text(.init(content))
+                    .font(.body)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.thinMaterial)
+            )
+        }
+    }
+}
+
+struct FeatureBoxHeader: View {
+    let title: String?
+    let summary: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let title {
+                Text(title)
+                    .font(.headline)
+            }
+            if let summary {
+                Text(summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct FactGridView: View {
+    let facts: [StoryFact]
+    let accentColor: Color
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
+            ForEach(facts, id: \.label) { fact in
+                VStack(spacing: 6) {
+                    Text(fact.value)
+                        .font(.title3.bold())
+                        .foregroundStyle(accentColor)
+                    Text(fact.label.uppercased())
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.thinMaterial)
+                )
+            }
+        }
+    }
+}
+
+struct TimelineView: View {
+    let items: [StoryTimelineItem]
+    let accentColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(items, id: \.year) { item in
+                HStack(alignment: .top, spacing: 12) {
+                    Text(item.year)
+                        .font(.headline)
+                        .foregroundStyle(accentColor)
+                        .frame(width: 72, alignment: .leading)
+                    Text(.init(item.text))
+                        .font(.body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+}
+
+struct GalleryView: View {
+    let images: [StoryGalleryImage]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
+            ForEach(images, id: \.source) { image in
+                VStack(alignment: .leading, spacing: 8) {
+                    if let url = URL(string: image.source) {
+                        AsyncImage(url: url) { content in
+                            content.resizable().scaledToFill()
+                        } placeholder: {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.secondary.opacity(0.2))
+                        }
+                        .frame(height: 140)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityLabel(image.altText)
+                    }
+                    if let caption = image.caption {
+                        Text(caption)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let credit = image.credit {
+                        Text(credit)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct FullBleedView: View {
+    let source: String
+    let altText: String
+    let caption: String?
+    let credit: String?
+    let kind: StoryFullBleedKind
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if kind == .video {
+                if let url = URL(string: source) {
+                    VideoPlayer(player: AVPlayer(url: url))
+                        .frame(height: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+            } else if let url = URL(string: source) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.2))
+                }
+                .frame(height: 220)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .accessibilityLabel(altText)
+            }
+            if let caption {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let credit {
+                Text(credit)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -409,6 +722,51 @@ extension DateFormatter {
         formatter.dateStyle = .medium
         return formatter
     }()
+}
+
+private extension StoryTypeRamp {
+    var fontDesign: Font.Design {
+        switch self {
+        case .serif:
+            return .serif
+        case .sans:
+            return .default
+        case .slab:
+            return .rounded
+        }
+    }
+}
+
+private extension Color {
+    init?(hex: String?) {
+        guard let hex, hex.isEmpty == false else {
+            return nil
+        }
+        let trimmed = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard trimmed.count == 6 || trimmed.count == 8 else {
+            return nil
+        }
+        var value: UInt64 = 0
+        guard Scanner(string: trimmed).scanHexInt64(&value) else {
+            return nil
+        }
+        let red: Double
+        let green: Double
+        let blue: Double
+        let alpha: Double
+        if trimmed.count == 8 {
+            red = Double((value & 0xFF00_0000) >> 24) / 255
+            green = Double((value & 0x00FF_0000) >> 16) / 255
+            blue = Double((value & 0x0000_FF00) >> 8) / 255
+            alpha = Double(value & 0x0000_00FF) / 255
+        } else {
+            red = Double((value & 0xFF00_00) >> 16) / 255
+            green = Double((value & 0x00FF_00) >> 8) / 255
+            blue = Double(value & 0x0000_FF) / 255
+            alpha = 1
+        }
+        self.init(.sRGB, red: red, green: green, blue: blue, opacity: alpha)
+    }
 }
 
 struct StoryBookmarkStore {

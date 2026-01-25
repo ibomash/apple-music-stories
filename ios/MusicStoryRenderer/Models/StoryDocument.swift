@@ -5,12 +5,17 @@ struct StoryDocument: Identifiable {
     let id: String
     let title: String
     let subtitle: String?
+    let deck: String?
     let authors: [String]
     let editors: [String]
     let publishDate: Date
     let tags: [String]
     let locale: String?
+    let accentColor: String?
+    let heroGradient: [String]
+    let typeRamp: StoryTypeRamp?
     let heroImage: StoryHeroImage?
+    let leadArt: StoryLeadArt?
     let sections: [StorySection]
     let media: [StoryMediaReference]
 
@@ -58,12 +63,22 @@ struct StoryDocument: Identifiable {
             id: "story-001",
             title: "Story Title",
             subtitle: "Optional dek",
+            deck: "Optional longer standfirst",
             authors: ["Author Name"],
             editors: ["Editor Name"],
             publishDate: publishDate,
             tags: ["genre", "theme"],
             locale: "en-US",
+            accentColor: "#6b4eff",
+            heroGradient: ["#2a0b5f", "#6b4eff"],
+            typeRamp: .serif,
             heroImage: heroImage,
+            leadArt: StoryLeadArt(
+                source: "https://example.com/lead.jpg",
+                altText: "Lead art",
+                caption: "Caption",
+                credit: "Photographer",
+            ),
             sections: [section],
             media: [mediaReference],
         )
@@ -73,6 +88,13 @@ struct StoryDocument: Identifiable {
 struct StoryHeroImage: Hashable, Codable {
     let source: String
     let altText: String
+    let credit: String?
+}
+
+struct StoryLeadArt: Hashable, Codable {
+    let source: String
+    let altText: String
+    let caption: String?
     let credit: String?
 }
 
@@ -87,6 +109,20 @@ struct StorySection: Identifiable, Hashable {
 enum StoryBlock: Identifiable, Hashable {
     case paragraph(id: String, text: String)
     case media(id: String, referenceKey: String, intent: PlaybackIntent?)
+    case dropQuote(id: String, text: String, attribution: String?)
+    case sideNote(id: String, text: String, label: String?)
+    case featureBox(id: String, title: String?, summary: String?, expandable: Bool, body: String)
+    case factGrid(id: String, facts: [StoryFact])
+    case timeline(id: String, items: [StoryTimelineItem])
+    case gallery(id: String, images: [StoryGalleryImage])
+    case fullBleed(
+        id: String,
+        source: String,
+        altText: String,
+        caption: String?,
+        credit: String?,
+        kind: StoryFullBleedKind,
+    )
 
     var id: String {
         switch self {
@@ -94,8 +130,50 @@ enum StoryBlock: Identifiable, Hashable {
             identifier
         case let .media(identifier, _, _):
             identifier
+        case let .dropQuote(identifier, _, _):
+            identifier
+        case let .sideNote(identifier, _, _):
+            identifier
+        case let .featureBox(identifier, _, _, _, _):
+            identifier
+        case let .factGrid(identifier, _):
+            identifier
+        case let .timeline(identifier, _):
+            identifier
+        case let .gallery(identifier, _):
+            identifier
+        case let .fullBleed(identifier, _, _, _, _, _):
+            identifier
         }
     }
+}
+
+struct StoryFact: Hashable {
+    let label: String
+    let value: String
+}
+
+struct StoryTimelineItem: Hashable {
+    let year: String
+    let text: String
+}
+
+struct StoryGalleryImage: Hashable {
+    let source: String
+    let altText: String
+    let caption: String?
+    let credit: String?
+}
+
+enum StoryFullBleedKind: String, Hashable {
+    case image
+    case video
+}
+
+enum StoryTypeRamp: String, Hashable {
+    case serif
+    case sans
+    case slab
 }
 
 struct StoryMediaReference: Identifiable, Hashable {
