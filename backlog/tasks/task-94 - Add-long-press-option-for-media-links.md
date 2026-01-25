@@ -1,10 +1,10 @@
 ---
 id: TASK-94
 title: Add long-press option for media links
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-24 21:42'
-updated_date: '2026-01-24 21:47'
+updated_date: '2026-01-25 14:00'
 labels:
   - ios
 dependencies: []
@@ -36,4 +36,6 @@ Support long-press actions on media links (e.g., copy/open options).
 
 <!-- SECTION:NOTES:BEGIN -->
 Scope confirmed: long-press shows Open in Music, Copy Link, Share actions.
+
+Implemented media long-press menu (Open in Music, Copy Link, Share) and enabled Open in Music for all media types. Tests: swift test.
 <!-- SECTION:NOTES:END -->

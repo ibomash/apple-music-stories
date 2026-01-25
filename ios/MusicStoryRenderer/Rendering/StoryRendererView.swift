@@ -610,6 +610,25 @@ struct MediaReferenceView: View {
         .padding(16)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .contextMenu {
+            Button {
+                playbackController.openInMusic(for: media)
+            } label: {
+                Label("Open in Music", systemImage: "music.note")
+            }
+            Button {
+                if let mediaLinkURL {
+                    UIPasteboard.general.url = mediaLinkURL
+                }
+            } label: {
+                Label("Copy Link", systemImage: "doc.on.doc")
+            }
+            if let mediaLinkURL {
+                ShareLink(item: mediaLinkURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
     }
 
     private var playButtonLabel: String {
@@ -618,6 +637,10 @@ struct MediaReferenceView: View {
 
     private var queueButtonLabel: String {
         "Queue"
+    }
+
+    private var mediaLinkURL: URL? {
+        StoryMediaLinkBuilder.url(for: media)
     }
 }
 
@@ -741,6 +764,24 @@ private extension StoryTypeRamp {
         case .slab:
             return .rounded
         }
+    }
+}
+
+private enum StoryMediaLinkBuilder {
+    static func url(for media: StoryMediaReference) -> URL? {
+        let storefront = Locale.current.regionCode?.lowercased() ?? "us"
+        let path: String
+        switch media.type {
+        case .track:
+            path = "song"
+        case .album:
+            path = "album"
+        case .playlist:
+            path = "playlist"
+        case .musicVideo:
+            path = "music-video"
+        }
+        return URL(string: "https://music.apple.com/\(storefront)/\(path)/\(media.appleMusicId)")
     }
 }
 

@@ -371,7 +371,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     func openInMusic(for media: StoryMediaReference? = nil) {
-        guard let target = media ?? displayEntry?.media, target.type == .musicVideo else {
+        guard let target = media ?? displayEntry?.media else {
             return
         }
         let descriptor = MPMusicPlayerStoreQueueDescriptor(storeIDs: [target.appleMusicId])
