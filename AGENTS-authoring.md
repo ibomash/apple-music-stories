@@ -9,6 +9,12 @@ Use typographic quotes and proper typography (smart quotes, apostrophes, en/em d
 Use the Apple Music skill to look up Apple Music catalog references (IDs, artwork, titles) rather than guessing them.
 When adding album references, default to the original explicit, non-deluxe version unless the user specifies otherwise.
 
+Image guidance (to avoid broken images on iOS):
+- Prefer Apple Music artwork URLs from the Apple Music skill or iTunes lookup; avoid Wikimedia hotlinks (often 403).
+- Use `.../100x100bb.jpg` for media `artwork_url` entries and `.../1200x1200bb.jpg` for hero/lead/gallery/full-bleed.
+- If you must use external images, verify they allow hotlinking and return 200/204 to a HEAD request.
+- Keep all image URLs HTTPS and direct to the image asset (no page URLs).
+
 Create a new folder under `stories/` named after the story (kebab-case). Inside it, write `story.mdx` with front matter and the narrative body. Include at least two sections and two media references. Use placeholder Apple Music IDs and artwork URLs if needed.
 
 Editorial guidance for magazine elements:
