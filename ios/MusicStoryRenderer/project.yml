@@ -8,6 +8,11 @@ configFiles:
   Debug: Config/Signing.xcconfig
   Release: Config/Signing.xcconfig
 
+packages:
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing.git
+    from: 1.12.0
+
 targets:
   MusicStoryRendererCore:
     type: framework
@@ -84,6 +89,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: MusicStoryRenderer
+      - package: SnapshotTesting
 
 schemes:
   MusicStoryRenderer:

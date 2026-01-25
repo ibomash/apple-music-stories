@@ -269,7 +269,7 @@ private struct StoryURLPromptView: View {
     }
 }
 
-private struct PlaybackBarView: View {
+struct PlaybackBarView: View {
     @ObservedObject var controller: AppleMusicPlaybackController
     var onExpand: () -> Void
 
@@ -345,7 +345,7 @@ private struct PlaybackAuthorizationBanner: View {
     }
 }
 
-private struct NowPlayingSheetView: View {
+struct NowPlayingSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var controller: AppleMusicPlaybackController
 

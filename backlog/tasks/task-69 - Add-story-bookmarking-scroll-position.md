@@ -1,10 +1,10 @@
 ---
 id: TASK-69
 title: Add story bookmarking (scroll position)
-status: Now
+status: Done
 assignee: []
 created_date: '2026-01-23 14:49'
-updated_date: '2026-01-23 15:32'
+updated_date: '2026-01-24 21:43'
 labels: []
 dependencies: []
 ---

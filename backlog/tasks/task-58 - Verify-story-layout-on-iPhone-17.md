@@ -1,9 +1,10 @@
 ---
 id: TASK-58
 title: Verify story layout on iPhone 17
-status: Now
+status: Done
 assignee: []
 created_date: '2026-01-22 21:14'
+updated_date: '2026-01-24 21:43'
 labels: []
 dependencies: []
 ---

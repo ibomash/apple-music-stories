@@ -1,10 +1,10 @@
 ---
 id: TASK-13
 title: Define agent-friendly iOS build tooling
-status: Now
+status: Done
 assignee: []
 created_date: '2026-01-17 05:56'
-updated_date: '2026-01-20 15:18'
+updated_date: '2026-01-24 21:43'
 labels: []
 dependencies: []
 ordinal: 1000

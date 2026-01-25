@@ -1,9 +1,10 @@
 ---
-id: task-41
+id: TASK-41
 title: Run iOS app on simulator/device
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 02:58'
+updated_date: '2026-01-24 21:43'
 labels:
   - macOS
 dependencies: []

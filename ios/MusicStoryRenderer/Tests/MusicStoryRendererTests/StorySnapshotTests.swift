@@ -1,0 +1,174 @@
+@testable import MusicStoryRenderer
+import SnapshotTesting
+import SwiftUI
+import XCTest
+
+@MainActor
+final class StorySnapshotTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        SnapshotTesting.isRecording = ProcessInfo.processInfo.environment["SNAPSHOT_RECORDING"] == "1"
+    }
+
+    func testStoryRendererView() {
+        let controller = AppleMusicPlaybackController(playbackEnabled: false)
+        controller.updateAuthorizationStatus(.authorized)
+        controller.queue(media: makeTrack(), intent: .preview)
+
+        let view = StoryRendererView(document: makeStoryDocument(), playbackController: controller)
+        assertSnapshot(for: view, named: "story-renderer")
+    }
+
+    func testMediaCard() {
+        let controller = AppleMusicPlaybackController(playbackEnabled: false)
+        controller.updateAuthorizationStatus(.authorized)
+
+        let view = MediaReferenceView(media: makeTrack(), intent: .preview, playbackController: controller)
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+
+        assertSnapshot(for: view, named: "media-card")
+    }
+
+    func testMediaVideoCard() {
+        let controller = AppleMusicPlaybackController(playbackEnabled: false)
+        controller.updateAuthorizationStatus(.authorized)
+
+        let view = MediaReferenceView(media: makeVideo(), intent: .preview, playbackController: controller)
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+
+        assertSnapshot(for: view, named: "media-video-card")
+    }
+
+    func testPlaybackBar() {
+        let controller = AppleMusicPlaybackController(playbackEnabled: false)
+        controller.updateAuthorizationStatus(.authorized)
+        controller.queue(media: makeTrack(), intent: .preview)
+
+        let view = PlaybackBarView(controller: controller, onExpand: {})
+            .padding(.top, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Color(.systemGroupedBackground))
+
+        assertSnapshot(for: view, named: "playback-bar")
+    }
+
+    func testNowPlayingSheet() {
+        let controller = AppleMusicPlaybackController(playbackEnabled: false)
+        controller.updateAuthorizationStatus(.authorized)
+        controller.play(media: makeTrack(), intent: .preview)
+        controller.queue(media: makeAlternateTrack(), intent: .preview)
+
+        let view = NowPlayingSheetView(controller: controller)
+        assertSnapshot(for: view, named: "now-playing-sheet")
+    }
+
+    func testLaunchDiagnostics() {
+        let store = StoryDocumentStore(bundleResourceURL: nil)
+        store.loadBundledSampleIfAvailable(name: "missing-sample")
+
+        let view = StoryLaunchView(
+            store: store,
+            availableStories: store.availableStories,
+            onOpenStory: {},
+            onSelectStory: { _ in },
+            onPickStory: {},
+            onLoadStoryURL: {},
+            onDeleteStory: {},
+            onDeleteCatalogStory: { _ in }
+        )
+        assertSnapshot(for: view, named: "launch-diagnostics")
+    }
+
+    private func assertSnapshot<V: View>(for view: V, named name: String) {
+        let controller = UIHostingController(rootView: view)
+        controller.view.backgroundColor = .systemBackground
+        SnapshotTesting.assertSnapshot(matching: controller, as: .image(on: .iPhone13), named: name)
+    }
+
+    private func makeStoryDocument() -> StoryDocument {
+        StoryDocument(
+            schemaVersion: "0.1",
+            id: "snapshot-story",
+            title: "Snapshots in Motion",
+            subtitle: "A visual regression story",
+            authors: ["Music Stories"],
+            editors: [],
+            publishDate: Date(timeIntervalSince1970: 1_737_484_800),
+            tags: ["ui", "snapshot"],
+            locale: "en-US",
+            heroImage: nil,
+            sections: [
+                StorySection(
+                    id: "intro",
+                    title: "Opening",
+                    layout: "lede",
+                    leadMediaKey: "trk-01",
+                    blocks: [
+                        .paragraph(
+                            id: "intro-paragraph",
+                            text: "Snapshot tests lock in layout and typography for each story scene.",
+                        ),
+                        .media(
+                            id: "intro-media",
+                            referenceKey: "trk-01",
+                            intent: .preview,
+                        ),
+                    ],
+                ),
+                StorySection(
+                    id: "closing",
+                    title: "Wrap",
+                    layout: nil,
+                    leadMediaKey: nil,
+                    blocks: [
+                        .paragraph(
+                            id: "closing-paragraph",
+                            text: "Keep visual regressions on a short leash by updating snapshots intentionally.",
+                        ),
+                    ],
+                ),
+            ],
+            media: [makeTrack()],
+        )
+    }
+
+    private func makeTrack() -> StoryMediaReference {
+        StoryMediaReference(
+            key: "trk-01",
+            type: .track,
+            appleMusicId: "123456789",
+            title: "Night Drive",
+            artist: "Signal Bloom",
+            artworkURL: nil,
+            durationMilliseconds: 192_000,
+        )
+    }
+
+    private func makeAlternateTrack() -> StoryMediaReference {
+        StoryMediaReference(
+            key: "trk-02",
+            type: .track,
+            appleMusicId: "987654321",
+            title: "City Lights",
+            artist: "Signal Bloom",
+            artworkURL: nil,
+            durationMilliseconds: 204_000,
+        )
+    }
+
+    private func makeVideo() -> StoryMediaReference {
+        StoryMediaReference(
+            key: "vid-01",
+            type: .musicVideo,
+            appleMusicId: "555555555",
+            title: "Midnight Cut",
+            artist: "Signal Bloom",
+            artworkURL: nil,
+            durationMilliseconds: nil,
+        )
+    }
+}
