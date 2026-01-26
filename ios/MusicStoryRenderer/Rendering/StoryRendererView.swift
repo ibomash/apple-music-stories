@@ -402,23 +402,8 @@ struct StoryPlaylistCallToActionView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         case .creating:
-            VStack(alignment: .leading, spacing: 6) {
-                let label = progressLabel(progress: progress, counts: counts)
-                if counts.total > 0 {
-                    ProgressView(value: countsProgress(counts)) {
-                        Text(label)
-                            .font(.callout)
-                    }
-                } else {
-                    ProgressView(label)
-                        .font(.callout)
-                }
-                if counts.total > 0 {
-                    Text("Added \(counts.added) of \(counts.total) items")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            ProgressView(progress.label.isEmpty ? "Creating playlist..." : progress.label)
+                .font(.callout)
         case let .created(name, _):
             VStack(alignment: .leading, spacing: 6) {
                 Label("Created \"\(name)\" in your library.", systemImage: "checkmark.circle.fill")
@@ -440,20 +425,6 @@ struct StoryPlaylistCallToActionView: View {
                 .font(.callout)
                 .foregroundStyle(.red)
         }
-    }
-
-    private func progressLabel(progress: PlaylistCreationProgress, counts: PlaylistCreationCounts) -> String {
-        if counts.total > 0 {
-            return "Added \(counts.added) of \(counts.total)"
-        }
-        return progress.label.isEmpty ? "Creating playlist..." : progress.label
-    }
-
-    private func countsProgress(_ counts: PlaylistCreationCounts) -> Double {
-        guard counts.total > 0 else {
-            return 0
-        }
-        return Double(counts.completed) / Double(counts.total)
     }
 
     private func buttonTitle(for status: PlaylistCreationStatus) -> String {

@@ -499,23 +499,49 @@ final class AppleMusicPlaybackController: ObservableObject {
             }
             playlistLogger.info("Resolved playlist items: \(items.songs.count) songs, \(items.musicVideos.count) videos")
 
+            let totalCount = items.totalCount
+            playlistCreationCounts = PlaylistCreationCounts(total: totalCount, added: 0, failed: 0)
+
             let playlistName = playlistName(for: document)
             let description = "Created from the story \"\(document.title)\"."
             playlistCreationProgress = .creatingPlaylist
-            let playlist = try await MusicLibrary.shared.createPlaylist(
-                name: playlistName,
-                description: description,
-                authorDisplayName: nil
-            )
-            playlistLogger.info("Created playlist \(playlistName, privacy: .public)")
+            try Task.checkCancellation()
 
-            playlistCreationProgress = .addingItems
-            playlistCreationCounts = PlaylistCreationCounts(total: items.totalCount, added: 0, failed: 0)
-            let outcome = try await addItems(items, to: playlist)
-            playlistLogger.info("Finished adding items to playlist")
+            let playlist: Playlist
+            var added = 0
+            var failed = 0
+
+            if items.songs.isEmpty {
+                playlistLogger.info("Creating playlist with \(items.musicVideos.count) videos")
+                playlist = try await MusicLibrary.shared.createPlaylist(
+                    name: playlistName,
+                    description: description,
+                    authorDisplayName: nil,
+                    items: items.musicVideos
+                )
+                added = items.musicVideos.count
+            } else {
+                playlistLogger.info("Creating playlist with \(items.songs.count) songs")
+                playlist = try await MusicLibrary.shared.createPlaylist(
+                    name: playlistName,
+                    description: description,
+                    authorDisplayName: nil,
+                    items: items.songs
+                )
+                added = items.songs.count
+
+                if items.musicVideos.isEmpty == false {
+                    playlistCreationProgress = .addingItems
+                    let outcome = try await addVideos(items.musicVideos, to: playlist)
+                    added += outcome.added
+                    failed += outcome.failed
+                }
+            }
+
+            playlistLogger.info("Created playlist \(playlistName, privacy: .public)")
             playlistCreationStatus = .created(name: playlistName, url: playlist.url)
             playlistCreationProgress = .idle
-            playlistCreationCounts = PlaylistCreationCounts(total: items.totalCount, added: outcome.added, failed: outcome.failed)
+            playlistCreationCounts = PlaylistCreationCounts(total: totalCount, added: added, failed: failed)
         } catch is CancellationError {
             playlistCreationStatus = .failed(message: "Playlist creation cancelled.")
             playlistCreationProgress = .idle
@@ -613,26 +639,12 @@ final class AppleMusicPlaybackController: ObservableObject {
         return PlaylistCreationItems(songs: songs, musicVideos: musicVideos)
     }
 
-    private func addItems(_ items: PlaylistCreationItems, to playlist: Playlist) async throws -> PlaylistCreationOutcome {
+    private func addVideos(_ videos: [MusicVideo], to playlist: Playlist) async throws -> PlaylistCreationOutcome {
         var added = 0
         var failed = 0
-        let total = items.totalCount
 
-        for song in items.songs {
-            try Task.checkCancellation()
-            do {
-                playlistLogger.info("Adding song \(song.id.rawValue, privacy: .public)")
-                try await MusicLibrary.shared.add(song, to: playlist)
-                playlistLogger.info("Added song \(song.id.rawValue, privacy: .public)")
-                added += 1
-            } catch {
-                playlistLogger.error("Failed to add song \(song.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                failed += 1
-            }
-            playlistCreationCounts = PlaylistCreationCounts(total: total, added: added, failed: failed)
-        }
-
-        for video in items.musicVideos {
+        playlistLogger.info("Adding \(videos.count) videos to playlist")
+        for video in videos {
             try Task.checkCancellation()
             do {
                 playlistLogger.info("Adding music video \(video.id.rawValue, privacy: .public)")
@@ -643,7 +655,6 @@ final class AppleMusicPlaybackController: ObservableObject {
                 playlistLogger.error("Failed to add music video \(video.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 failed += 1
             }
-            playlistCreationCounts = PlaylistCreationCounts(total: total, added: added, failed: failed)
         }
 
         return PlaylistCreationOutcome(added: added, failed: failed)
@@ -689,7 +700,7 @@ struct PlaylistCreationProgress: Hashable {
     static let idle = PlaylistCreationProgress(value: 0, label: "")
     static let collectingItems = PlaylistCreationProgress(value: 0.2, label: "Collecting story items")
     static let creatingPlaylist = PlaylistCreationProgress(value: 0.5, label: "Creating playlist")
-    static let addingItems = PlaylistCreationProgress(value: 0.8, label: "Adding tracks")
+    static let addingItems = PlaylistCreationProgress(value: 0.8, label: "Adding items")
 }
 
 private struct PlaylistCreationItems {
