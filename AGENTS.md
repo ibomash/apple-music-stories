@@ -8,7 +8,16 @@ Backlog tasks and documents are kept under `backlog/` and use the Backlog.md sys
 
 This project uses the labels: (to come)
 
-**Whenever the user asks you to do something,** if they don't specify a task ID and it's more than just a trivial task like moving some tickets or running a command line, create a new Backlog task to capture and document the work. Keep the task's status updated as you work, outlining what you were asked for, how you're going to do it, and documenting what happened when it's done.
+Backlog is for high-level product tracking (features, acceptance criteria, priorities). Beads is for execution (steps, dependencies, progress).
+
+Create Backlog tasks only when work should be tracked at the product level or when the user asks for backlog tracking. For execution work, create a Beads issue instead; for trivial work, skip tracking.
+
+## Beads + Backlog workflow
+
+- Canonical guidance: `backlog/docs/docs/workflows/doc-9 - Beads-and-Backlog-workflow.md`.
+- Backlog owns planning and acceptance criteria; Beads owns execution status and decomposition.
+- Promote a Backlog task to Beads when it moves to Now/Next or has an `execution:beads` label, and add the `## Execution` backlink section to the Backlog task.
+- For execution-only work without product tracking, create a Beads issue directly and skip Backlog.
 
 ## Coding
 
@@ -24,26 +33,8 @@ Use `AGENTS-authoring.md` for the authoring-only prompt and guidance.
 
 ## Landing the Plane (Session Completion)
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+Follow `backlog/docs/docs/workflows/doc-11 - Landing-the-plane-workflow.md`.
 
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+Key points:
+- Run the full workflow only when you made changes to publish or used Beads.
+- Push only when explicitly requested and commits exist.

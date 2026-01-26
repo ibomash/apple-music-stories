@@ -133,5 +133,5 @@ Use this when validating story layout width and hero image alignment.
 - This repo targets Swift 6.2 and Python 3.13.
 - Always run relevant tests for changes. If tests cannot run, note the blocker.
 - Keep secrets out of the repo; store Apple Music tokens in local-only configs.
-- Use the `backlog` CLI to manage tasks and create new ones for non-trivial work.
+- Follow `AGENTS.md` for Backlog/Beads task creation and workflow guidance.
 - Keep `ios/architecture.md` and `ios/status.md` up to date as tasks move.

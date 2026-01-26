@@ -13,6 +13,7 @@ Backlog.md is the canonical product backlog and planning record. Beads is the ca
 ## Rules of thumb
 - Backlog answers: what should we build, why, and what defines done.
 - Beads answers: what should we do next, how it decomposes, and what is blocked.
+- Create Backlog tasks sparingly for product-level tracking; create Beads issues for execution work.
 
 ## Source of truth
 - Backlog: epics, features, tasks, acceptance criteria, decisions, priorities.
@@ -20,6 +21,9 @@ Backlog.md is the canonical product backlog and planning record. Beads is the ca
 
 ## Mapping (Backlog to Beads)
 Promote a Backlog task to Beads when it moves to `Next` or `Now`, or receives a promotion label like `execution:beads`.
+
+## Beads-first execution
+If work is execution-only and does not need product-level tracking, create a Beads issue directly. Use `Backlog: none` in the issue body and skip creating a Backlog task.
 
 Mapping fields:
 - Backlog task id -> Beads `external_id` (store the Backlog id).
@@ -56,7 +60,7 @@ Idempotency rules:
 
 ## Beads issue body template
 ```md
-Backlog: backlog/tasks/<task-file>.md
+Backlog: backlog/tasks/<task-file>.md (or "Backlog: none" for Beads-only work)
 
 Goal:
 - <deliverable>
@@ -70,7 +74,8 @@ Notes:
 ```
 
 ## Day-to-day workflow
-1) Plan in Backlog (describe deliverable, acceptance criteria, constraints).
-2) Promote task to Beads for execution.
-3) Execute in Beads (subtasks, dependencies, progress).
-4) Close the loop (minimal status and completion notes in Backlog).
+1) If product tracking is needed, plan in Backlog (deliverable, acceptance criteria, constraints).
+2) Promote to Beads for execution when it moves to Now/Next.
+3) If execution-only, create a Beads issue directly.
+4) Execute in Beads (subtasks, dependencies, progress).
+5) Close the loop with minimal status and completion notes in Backlog when a Backlog task exists.
