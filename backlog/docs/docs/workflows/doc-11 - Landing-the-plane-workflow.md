@@ -15,12 +15,13 @@ Close a work session in a consistent, low-friction way while keeping Backlog and
 - If there are no code/content changes and no commits, do a light closeout (status + handoff only).
 
 ## Steps
-1) File follow-up work as Backlog tasks when product tracking is needed, or Beads issues for execution-only work.
-2) Run quality gates if code changed (tests, lint, build). Note blockers if they cannot run.
+1) File follow-up work as Beads issues; suggest any additions to the Backlog product backlog if relevant.
+2) Run quality gates if code changed (tests, lint, format, build). Note blockers if they cannot run.
 3) Update task status (Backlog and Beads, if used).
 4) Sync Beads when needed:
    - `bd sync` if `.beads/` changed or Beads issues were created/updated.
-5) Publish commits only when requested and commits exist:
+5) Stage and commit changes related to the current conversation.
+   Publish commits only when requested and commits exist:
    - `git pull --rebase`
    - `git push`
    - `git status` shows up to date
@@ -28,5 +29,4 @@ Close a work session in a consistent, low-friction way while keeping Backlog and
 7) Handoff: summarize changes, tests, blockers, and next steps.
 
 ## Notes
-- Do not create commits unless explicitly requested.
 - Avoid force-push or rewriting history unless explicitly requested.
