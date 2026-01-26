@@ -1,12 +1,14 @@
 ---
 id: TASK-47
 title: Enable MusicKit app service
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 22:31'
+updated_date: '2026-01-26 18:01'
 labels:
   - human
 dependencies: []
+ordinal: 250
 ---
 
 ## Description

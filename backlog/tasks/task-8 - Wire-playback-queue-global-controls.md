@@ -1,12 +1,13 @@
 ---
-id: task-8
+id: TASK-8
 title: Wire playback queue + global controls
 status: Done
 assignee: []
 created_date: '2026-01-12 18:58'
-updated_date: '2026-01-15 21:38'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 116000
 ---
 
 ## Description

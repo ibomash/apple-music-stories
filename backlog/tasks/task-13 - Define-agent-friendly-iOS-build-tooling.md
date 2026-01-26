@@ -4,10 +4,10 @@ title: Define agent-friendly iOS build tooling
 status: Done
 assignee: []
 created_date: '2026-01-17 05:56'
-updated_date: '2026-01-24 21:43'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
-ordinal: 1000
+ordinal: 2000
 ---
 
 ## Description

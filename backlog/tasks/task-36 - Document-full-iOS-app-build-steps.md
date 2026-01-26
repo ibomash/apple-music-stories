@@ -1,12 +1,13 @@
 ---
-id: task-36
+id: TASK-36
 title: Document full iOS app build steps
 status: Done
 assignee: []
 created_date: '2026-01-19 21:38'
-updated_date: '2026-01-19 23:29'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 87000
 ---
 
 ## Description

@@ -4,9 +4,10 @@ title: Add Puppeteer playback test
 status: Done
 assignee: []
 created_date: '2026-01-25 00:25'
-updated_date: '2026-01-25 00:31'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 34000
 ---
 
 ## Description

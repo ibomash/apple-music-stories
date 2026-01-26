@@ -1,13 +1,14 @@
 ---
-id: task-25.2
+id: TASK-25.2
 title: 'Phase 3: Playback controller tests'
 status: Done
 assignee: []
 created_date: '2026-01-18 19:23'
-updated_date: '2026-01-18 20:11'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
-parent_task_id: task-25
+parent_task_id: TASK-25
+ordinal: 100000
 ---
 
 ## Description

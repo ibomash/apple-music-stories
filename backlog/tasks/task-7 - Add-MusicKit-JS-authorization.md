@@ -1,12 +1,13 @@
 ---
-id: task-7
+id: TASK-7
 title: Add MusicKit JS authorization
 status: Done
 assignee: []
 created_date: '2026-01-12 18:58'
-updated_date: '2026-01-12 19:40'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 117000
 ---
 
 ## Description

@@ -4,9 +4,10 @@ title: Add URL-based story loading
 status: Done
 assignee: []
 created_date: '2026-01-21 02:50'
-updated_date: '2026-01-21 03:06'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 73000
 ---
 
 ## Description

@@ -4,9 +4,10 @@ title: Install Puppeteer MCP and test story server
 status: Done
 assignee: []
 created_date: '2026-01-24 17:14'
-updated_date: '2026-01-24 17:17'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 40000
 ---
 
 ## Description

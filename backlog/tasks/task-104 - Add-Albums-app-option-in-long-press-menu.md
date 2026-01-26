@@ -4,11 +4,11 @@ title: Add Albums app option in long-press menu
 status: Done
 assignee: []
 created_date: '2026-01-25 14:35'
-updated_date: '2026-01-26 15:10'
+updated_date: '2026-01-26 18:01'
 labels:
   - ios
 dependencies: []
-ordinal: 2000
+ordinal: 9000
 ---
 
 ## Description

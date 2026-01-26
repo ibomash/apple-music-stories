@@ -4,11 +4,12 @@ title: 'Phase 3: Define build and test commands'
 status: Done
 assignee: []
 created_date: '2026-01-20 15:23'
-updated_date: '2026-01-20 22:41'
+updated_date: '2026-01-26 18:01'
 labels:
   - macOS
 dependencies: []
 parent_task_id: TASK-13
+ordinal: 5000
 ---
 
 ## Description

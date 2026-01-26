@@ -4,9 +4,10 @@ title: Add swipe-down dismiss for video playback
 status: Done
 assignee: []
 created_date: '2026-01-23 21:24'
-updated_date: '2026-01-23 21:25'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 52000
 ---
 
 ## Description

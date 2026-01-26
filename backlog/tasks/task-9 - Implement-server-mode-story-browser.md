@@ -1,12 +1,13 @@
 ---
-id: task-9
+id: TASK-9
 title: Implement server mode story browser
 status: Done
 assignee: []
 created_date: '2026-01-12 18:58'
-updated_date: '2026-01-15 21:48'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 115000
 ---
 
 ## Description

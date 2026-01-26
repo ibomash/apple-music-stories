@@ -1,12 +1,13 @@
 ---
-id: task-22
+id: TASK-22
 title: Add iOS implementation phase tasks
 status: Done
 assignee: []
 created_date: '2026-01-17 19:04'
-updated_date: '2026-01-17 19:05'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 107000
 ---
 
 ## Description

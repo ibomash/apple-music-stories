@@ -1,13 +1,14 @@
 ---
-id: task-23.2
+id: TASK-23.2
 title: 'Phase 1: Implement StoryPackageLoader'
 status: Done
 assignee: []
 created_date: '2026-01-17 19:05'
-updated_date: '2026-01-17 19:35'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
-parent_task_id: task-23
+parent_task_id: TASK-23
+ordinal: 104000
 ---
 
 ## Description

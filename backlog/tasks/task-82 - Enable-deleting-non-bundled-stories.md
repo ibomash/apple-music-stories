@@ -4,9 +4,10 @@ title: Enable deleting non-bundled stories
 status: Done
 assignee: []
 created_date: '2026-01-23 22:24'
-updated_date: '2026-01-23 22:26'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 48000
 ---
 
 ## Description

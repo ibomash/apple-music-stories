@@ -4,9 +4,10 @@ title: Install Beads and define Backlog/Beads workflow
 status: Done
 assignee: []
 created_date: '2026-01-25 22:14'
-updated_date: '2026-01-25 22:16'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 21000
 ---
 
 ## Description

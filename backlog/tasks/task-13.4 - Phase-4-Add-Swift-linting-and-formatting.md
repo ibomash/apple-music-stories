@@ -4,10 +4,11 @@ title: 'Phase 4: Add Swift linting and formatting'
 status: Done
 assignee: []
 created_date: '2026-01-20 15:23'
-updated_date: '2026-01-21 01:46'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
 parent_task_id: TASK-13
+ordinal: 6000
 ---
 
 ## Description

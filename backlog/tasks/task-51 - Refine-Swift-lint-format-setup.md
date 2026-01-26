@@ -4,9 +4,10 @@ title: Refine Swift lint/format setup
 status: Done
 assignee: []
 created_date: '2026-01-21 01:51'
-updated_date: '2026-01-21 01:57'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 77000
 ---
 
 ## Description

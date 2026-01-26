@@ -4,10 +4,11 @@ title: Run iOS app on simulator/device
 status: Done
 assignee: []
 created_date: '2026-01-20 02:58'
-updated_date: '2026-01-24 21:43'
+updated_date: '2026-01-26 18:01'
 labels:
   - macOS
 dependencies: []
+ordinal: 82000
 ---
 
 ## Description

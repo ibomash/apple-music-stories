@@ -1,12 +1,13 @@
 ---
-id: task-25
+id: TASK-25
 title: 'Phase 3: MusicKit integration + playback bar'
 status: Done
 assignee: []
 created_date: '2026-01-17 19:05'
-updated_date: '2026-01-18 20:11'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 98000
 ---
 
 ## Description

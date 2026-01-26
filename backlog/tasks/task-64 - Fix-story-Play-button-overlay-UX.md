@@ -4,10 +4,11 @@ title: Fix story Play button overlay UX
 status: Done
 assignee: []
 created_date: '2026-01-23 03:05'
-updated_date: '2026-01-23 03:17'
+updated_date: '2026-01-26 18:01'
 labels:
   - ui
 dependencies: []
+ordinal: 65000
 ---
 
 ## Description

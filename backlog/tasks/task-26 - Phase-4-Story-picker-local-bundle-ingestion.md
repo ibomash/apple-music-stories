@@ -1,12 +1,13 @@
 ---
-id: task-26
+id: TASK-26
 title: 'Phase 4: Story picker + local bundle ingestion'
 status: Done
 assignee: []
 created_date: '2026-01-17 19:05'
-updated_date: '2026-01-19 22:45'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 97000
 ---
 
 ## Description

@@ -4,9 +4,10 @@ title: Align Backlog vs Beads usage guidance
 status: Done
 assignee: []
 created_date: '2026-01-26 00:00'
-updated_date: '2026-01-26 00:01'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 11000
 ---
 
 ## Description

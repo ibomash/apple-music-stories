@@ -4,9 +4,10 @@ title: Enforce typographic quotes in story authoring
 status: Done
 assignee: []
 created_date: '2026-01-23 17:56'
-updated_date: '2026-01-23 17:57'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 56000
 ---
 
 ## Description

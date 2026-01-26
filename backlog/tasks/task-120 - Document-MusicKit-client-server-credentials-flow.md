@@ -4,9 +4,10 @@ title: Document MusicKit client/server credentials flow
 status: Done
 assignee: []
 created_date: '2026-01-25 22:32'
-updated_date: '2026-01-25 22:33'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 16000
 ---
 
 ## Description

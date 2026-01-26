@@ -4,9 +4,10 @@ title: Fix story width on simulator
 status: Done
 assignee: []
 created_date: '2026-01-22 21:10'
-updated_date: '2026-01-22 21:12'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 71000
 ---
 
 ## Description

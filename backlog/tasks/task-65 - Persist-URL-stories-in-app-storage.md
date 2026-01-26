@@ -4,9 +4,10 @@ title: Persist URL stories in app storage
 status: Done
 assignee: []
 created_date: '2026-01-23 03:41'
-updated_date: '2026-01-23 04:03'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 64000
 ---
 
 ## Description

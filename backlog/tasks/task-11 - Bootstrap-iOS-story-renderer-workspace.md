@@ -1,12 +1,13 @@
 ---
-id: task-11
+id: TASK-11
 title: Bootstrap iOS story renderer workspace
 status: Done
 assignee: []
 created_date: '2026-01-17 05:48'
-updated_date: '2026-01-17 05:52'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 113000
 ---
 
 ## Description

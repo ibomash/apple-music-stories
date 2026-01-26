@@ -1,12 +1,13 @@
 ---
-id: task-33
+id: TASK-33
 title: Document iOS architecture
 status: Done
 assignee: []
 created_date: '2026-01-19 21:21'
-updated_date: '2026-01-19 21:22'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 90000
 ---
 
 ## Description

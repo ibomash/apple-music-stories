@@ -4,9 +4,10 @@ title: Make story cards fully tappable on iOS
 status: Done
 assignee: []
 created_date: '2026-01-23 18:23'
-updated_date: '2026-01-23 18:24'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 54000
 ---
 
 ## Description

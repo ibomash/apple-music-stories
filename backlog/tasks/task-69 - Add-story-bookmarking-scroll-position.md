@@ -4,9 +4,10 @@ title: Add story bookmarking (scroll position)
 status: Done
 assignee: []
 created_date: '2026-01-23 14:49'
-updated_date: '2026-01-24 21:43'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 60000
 ---
 
 ## Description

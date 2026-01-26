@@ -4,9 +4,10 @@ title: Bundle local stories into iOS build
 status: Done
 assignee: []
 created_date: '2026-01-23 16:10'
-updated_date: '2026-01-23 16:15'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 59000
 ---
 
 ## Description

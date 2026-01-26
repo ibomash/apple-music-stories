@@ -1,12 +1,13 @@
 ---
-id: task-23
+id: TASK-23
 title: 'Phase 1: Story parsing + static rendering'
 status: Done
 assignee: []
 created_date: '2026-01-17 19:05'
-updated_date: '2026-01-17 19:35'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 102000
 ---
 
 ## Description

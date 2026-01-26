@@ -4,9 +4,10 @@ title: Design launch screen with story picker
 status: Done
 assignee: []
 created_date: '2026-01-21 02:50'
-updated_date: '2026-01-21 03:01'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 74000
 ---
 
 ## Description

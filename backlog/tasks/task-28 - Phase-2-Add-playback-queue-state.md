@@ -1,12 +1,13 @@
 ---
-id: task-28
+id: TASK-28
 title: 'Phase 2: Add playback queue state'
 status: Done
 assignee: []
 created_date: '2026-01-18 18:19'
-updated_date: '2026-01-18 19:02'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 95000
 ---
 
 ## Description

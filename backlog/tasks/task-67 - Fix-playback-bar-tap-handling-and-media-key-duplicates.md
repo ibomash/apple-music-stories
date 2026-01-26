@@ -4,9 +4,10 @@ title: Fix playback bar tap handling and media key duplicates
 status: Done
 assignee: []
 created_date: '2026-01-23 14:12'
-updated_date: '2026-01-23 14:17'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 62000
 ---
 
 ## Description

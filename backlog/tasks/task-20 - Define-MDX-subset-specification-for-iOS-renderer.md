@@ -1,12 +1,13 @@
 ---
-id: task-20
+id: TASK-20
 title: Define MDX subset specification for iOS renderer
 status: Done
 assignee: []
 created_date: '2026-01-17 17:00'
-updated_date: '2026-01-17 17:48'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 109000
 ---
 
 ## Description

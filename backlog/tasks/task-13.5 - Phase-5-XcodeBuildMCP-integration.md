@@ -4,11 +4,12 @@ title: 'Phase 5: XcodeBuildMCP integration'
 status: Done
 assignee: []
 created_date: '2026-01-20 15:24'
-updated_date: '2026-01-21 02:14'
+updated_date: '2026-01-26 18:01'
 labels:
   - macOS
 dependencies: []
 parent_task_id: TASK-13
+ordinal: 7000
 ---
 
 ## Description
@@ -84,12 +85,12 @@ With the XcodeGen project and simulator in place, we need to configure XcodeBuil
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 #1 XcodeBuildMCP can discover the project
-- [ ] #2 #2 Session defaults are documented
-- [ ] #3 #3 `build_sim` succeeds
-- [ ] #4 #4 `test_sim` runs tests
-- [ ] #5 #5 `build_run_sim` launches the app
-- [ ] #6 #6 MCP workflow documented in `ios/AGENTS.md`
+- [ ] #1 #1 #1 XcodeBuildMCP can discover the project
+- [ ] #2 #2 #2 Session defaults are documented
+- [ ] #3 #3 #3 `build_sim` succeeds
+- [ ] #4 #4 #4 `test_sim` runs tests
+- [ ] #5 #5 #5 `build_run_sim` launches the app
+- [ ] #6 #6 #6 MCP workflow documented in `ios/AGENTS.md`
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Implementation Plan
@@ -110,6 +111,8 @@ With the XcodeGen project and simulator in place, we need to configure XcodeBuil
 - Added CFBundleExecutable to Info.plist to fix simulator install failure.
 - Documented XcodeBuildMCP usage in ios/AGENTS.md.
 <!-- SECTION:NOTES:END -->
+
+<!-- AC:END -->
 
 <!-- AC:END -->
 

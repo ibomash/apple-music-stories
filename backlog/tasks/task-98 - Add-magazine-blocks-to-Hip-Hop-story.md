@@ -4,9 +4,10 @@ title: Add magazine blocks to Hip Hop story
 status: Done
 assignee: []
 created_date: '2026-01-24 22:13'
-updated_date: '2026-01-24 22:31'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 35000
 ---
 
 ## Description

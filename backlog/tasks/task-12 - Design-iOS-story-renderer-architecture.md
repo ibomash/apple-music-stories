@@ -1,12 +1,13 @@
 ---
-id: task-12
+id: TASK-12
 title: Design iOS story renderer architecture
 status: Done
 assignee: []
 created_date: '2026-01-17 05:56'
-updated_date: '2026-01-17 14:37'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 112000
 ---
 
 ## Description

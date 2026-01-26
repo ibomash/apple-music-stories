@@ -4,9 +4,10 @@ title: Verify simulator alignment and document workflow
 status: Done
 assignee: []
 created_date: '2026-01-22 22:13'
-updated_date: '2026-01-22 22:15'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 69000
 ---
 
 ## Description

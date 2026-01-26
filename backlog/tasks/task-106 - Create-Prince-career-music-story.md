@@ -4,9 +4,10 @@ title: Create Prince career music story
 status: Done
 assignee: []
 created_date: '2026-01-25 15:05'
-updated_date: '2026-01-25 15:11'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 29000
 ---
 
 ## Description

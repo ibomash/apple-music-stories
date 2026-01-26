@@ -4,9 +4,10 @@ title: Review Beads/Backlog instructions and landing-the-plane conflicts
 status: Done
 assignee: []
 created_date: '2026-01-25 22:41'
-updated_date: '2026-01-25 23:35'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 14000
 ---
 
 ## Description

@@ -4,10 +4,11 @@ title: Fix playback sheet UX
 status: Done
 assignee: []
 created_date: '2026-01-23 02:39'
-updated_date: '2026-01-23 02:49'
+updated_date: '2026-01-26 18:01'
 labels:
   - ui
 dependencies: []
+ordinal: 67000
 ---
 
 ## Description

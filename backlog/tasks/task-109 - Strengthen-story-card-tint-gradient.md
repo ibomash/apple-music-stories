@@ -4,9 +4,10 @@ title: Strengthen story card tint gradient
 status: Done
 assignee: []
 created_date: '2026-01-25 15:48'
-updated_date: '2026-01-25 15:49'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 26000
 ---
 
 ## Description

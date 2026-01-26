@@ -4,9 +4,10 @@ title: Standardize Swift trailing commas
 status: Done
 assignee: []
 created_date: '2026-01-21 02:04'
-updated_date: '2026-01-21 02:04'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 76000
 ---
 
 ## Description

@@ -1,12 +1,14 @@
 ---
-id: task-42
+id: TASK-42
 title: Run iOS snapshot tests
-status: Later
+status: Done
 assignee: []
 created_date: '2026-01-20 02:58'
+updated_date: '2026-01-26 18:01'
 labels:
   - macOS
 dependencies: []
+ordinal: 500
 ---
 
 ## Description

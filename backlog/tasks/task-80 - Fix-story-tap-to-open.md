@@ -4,9 +4,10 @@ title: Fix story tap to open
 status: Done
 assignee: []
 created_date: '2026-01-23 22:15'
-updated_date: '2026-01-23 22:20'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 50000
 ---
 
 ## Description

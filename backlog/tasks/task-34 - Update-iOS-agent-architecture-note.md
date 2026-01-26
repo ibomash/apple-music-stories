@@ -1,12 +1,13 @@
 ---
-id: task-34
+id: TASK-34
 title: Update iOS agent architecture note
 status: Done
 assignee: []
 created_date: '2026-01-19 21:26'
-updated_date: '2026-01-19 21:26'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 89000
 ---
 
 ## Description

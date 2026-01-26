@@ -4,9 +4,10 @@ title: Simplify video playback code
 status: Done
 assignee: []
 created_date: '2026-01-24 02:10'
-updated_date: '2026-01-24 02:11'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 41000
 ---
 
 ## Description

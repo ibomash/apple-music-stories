@@ -1,12 +1,13 @@
 ---
-id: task-14
+id: TASK-14
 title: Draft iOS renderer architecture doc
 status: Done
 assignee: []
 created_date: '2026-01-17 14:40'
-updated_date: '2026-01-17 14:41'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 111000
 ---
 
 ## Description

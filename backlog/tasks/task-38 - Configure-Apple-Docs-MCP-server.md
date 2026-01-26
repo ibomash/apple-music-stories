@@ -1,12 +1,13 @@
 ---
-id: task-38
+id: TASK-38
 title: Configure Apple Docs MCP server
 status: Done
 assignee: []
 created_date: '2026-01-19 22:17'
-updated_date: '2026-01-19 22:18'
+updated_date: '2026-01-26 18:01'
 labels: []
 dependencies: []
+ordinal: 85000
 ---
 
 ## Description
