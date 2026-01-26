@@ -351,6 +351,37 @@ body {
 .media-meta {
   font-family: "SF Pro Display", "Inter", "Helvetica Neue", sans-serif;
 }
+.media-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.08);
+  color: #111111;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 8px;
+  width: fit-content;
+}
+.media-badge-album {
+  border: 1px solid rgba(17, 17, 17, 0.16);
+}
+.media-badge-track {
+  background: rgba(214, 69, 80, 0.14);
+  border: 1px solid rgba(214, 69, 80, 0.35);
+  color: #9c2832;
+}
+.media-badge-video {
+  background: #111111;
+  color: #ffffff;
+}
+.media-badge-playlist {
+  background: rgba(17, 17, 17, 0.12);
+  border: 1px solid rgba(17, 17, 17, 0.24);
+}
 .media-title {
   font-weight: 700;
   font-size: 1.1rem;
@@ -743,18 +774,31 @@ def render_media_card(
         else '<img src="" alt="" style="opacity:0;">'
     )
     apple_link = build_apple_music_link(media)
+    badge_label, badge_class = build_media_badge(media.type)
+    badge_html = (
+        f'<div class="media-badge {badge_class}">{html.escape(badge_label)}</div>'
+        if badge_label
+        else ""
+    )
+    controls: list[str] = []
+    if not is_video_type(media.type):
+        controls.append('<button class="media-play" data-action="play">Play</button>')
+    open_link = (
+        '<a class="media-link" href="{link}" target="_blank" rel="noopener">'
+        "Open in Apple Music"
+        "</a>"
+    ).format(link=html.escape(apple_link))
+    controls.append(open_link)
     return (
         '<div class="media-card" data-media-key="{key}" data-media-type="{type}" '
         'data-apple-music-id="{id}">'
         "{artwork}"
         '<div class="media-meta">'
+        "{badge}"
         '<div class="media-title">{title}</div>'
         '<div class="media-artist">{artist}</div>'
         '<div class="media-controls">'
-        '<button class="media-play" data-action="play">Play</button>'
-        '<a class="media-link" href="{link}" target="_blank" rel="noopener">'
-        "Open in Apple Music"
-        "</a>"
+        "{controls}"
         "</div>"
         "</div>"
         "</div>"
@@ -763,10 +807,30 @@ def render_media_card(
         type=html.escape(media.type),
         id=html.escape(media.apple_music_id),
         artwork=artwork_html,
+        badge=badge_html,
         title=html.escape(media.title),
         artist=html.escape(media.artist),
-        link=html.escape(apple_link),
+        controls="".join(controls),
     )
+
+
+def is_video_type(media_type: str) -> bool:
+    return media_type.lower().strip() in {"music-video", "video"}
+
+
+def build_media_badge(media_type: str) -> tuple[str, str]:
+    normalized = media_type.lower().strip()
+    if normalized in {"music-video", "video"}:
+        return "Video", "media-badge-video"
+    if normalized == "album":
+        return "Album", "media-badge-album"
+    if normalized == "track":
+        return "Track", "media-badge-track"
+    if normalized == "playlist":
+        return "Playlist", "media-badge-playlist"
+    if normalized:
+        return normalized.replace("-", " ").title(), "media-badge-album"
+    return "Media", "media-badge-album"
 
 
 def build_apple_music_link(media: StoryMedia) -> str:
