@@ -1,13 +1,14 @@
 ---
 id: TASK-93
 title: Add album-wide progress bar
-status: Later
+status: Now
 assignee: []
 created_date: '2026-01-24 21:42'
-updated_date: '2026-01-24 21:47'
+updated_date: '2026-01-26 03:50'
 labels:
   - ios
 dependencies: []
+ordinal: 1000
 ---
 
 ## Description

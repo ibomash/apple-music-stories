@@ -1,12 +1,13 @@
 ---
 id: TASK-83
 title: Plan UI tests backlog
-status: Later
+status: Next
 assignee: []
 created_date: '2026-01-23 22:29'
-updated_date: '2026-01-23 22:29'
+updated_date: '2026-01-26 03:50'
 labels: []
 dependencies: []
+ordinal: 1000
 ---
 
 ## Description
