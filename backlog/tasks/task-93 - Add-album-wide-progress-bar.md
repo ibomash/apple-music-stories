@@ -1,10 +1,10 @@
 ---
 id: TASK-93
 title: Add album-wide progress bar
-status: Now
+status: Done
 assignee: []
 created_date: '2026-01-24 21:42'
-updated_date: '2026-01-26 03:50'
+updated_date: '2026-01-26 08:15'
 labels:
   - ios
 dependencies: []
@@ -19,9 +19,9 @@ Show an album-level progress indicator across tracks in the playback UI.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Album-wide progress bar appears for album playback.
-- [ ] #2 Progress updates smoothly as tracks advance.
-- [ ] #3 Progress resets when album changes.
+- [x] #1 Album-wide progress bar appears for album playback.
+- [x] #2 Progress updates smoothly as tracks advance.
+- [x] #3 Progress resets when album changes.
 <!-- AC:END -->
 
 ## Implementation Plan
