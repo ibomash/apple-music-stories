@@ -1,10 +1,10 @@
 ---
 id: TASK-104
 title: Add Albums app option in long-press menu
-status: Next
+status: Done
 assignee: []
 created_date: '2026-01-25 14:35'
-updated_date: '2026-01-26 03:50'
+updated_date: '2026-01-26 15:10'
 labels:
   - ios
 dependencies: []

@@ -715,6 +715,7 @@ struct MediaReferenceView: View {
     let media: StoryMediaReference
     let intent: PlaybackIntent?
     let playbackController: AppleMusicPlaybackController
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         let isVideo = media.type == .musicVideo
@@ -787,6 +788,13 @@ struct MediaReferenceView: View {
             } label: {
                 Label("Open in Music", systemImage: "music.note")
             }
+            if canOpenInAlbums, let albumsLinkURL {
+                Button {
+                    openURL(albumsLinkURL)
+                } label: {
+                    Label("Open in Albums", systemImage: "rectangle.stack")
+                }
+            }
             Button {
                 if let mediaLinkURL {
                     UIPasteboard.general.url = mediaLinkURL
@@ -812,6 +820,17 @@ struct MediaReferenceView: View {
 
     private var mediaLinkURL: URL? {
         StoryMediaLinkBuilder.url(for: media)
+    }
+
+    private var albumsLinkURL: URL? {
+        StoryMediaLinkBuilder.albumsURL(for: media)
+    }
+
+    private var canOpenInAlbums: Bool {
+        guard let albumsLinkURL else {
+            return false
+        }
+        return UIApplication.shared.canOpenURL(albumsLinkURL)
     }
 }
 
@@ -953,6 +972,21 @@ private enum StoryMediaLinkBuilder {
             path = "music-video"
         }
         return URL(string: "https://music.apple.com/\(storefront)/\(path)/\(media.appleMusicId)")
+    }
+
+    static func albumsURL(for media: StoryMediaReference) -> URL? {
+        let path: String
+        switch media.type {
+        case .track:
+            path = "open/track"
+        case .album:
+            path = "open/album"
+        case .playlist:
+            return nil
+        case .musicVideo:
+            return nil
+        }
+        return URL(string: "albums://\(path)/\(media.appleMusicId)")
     }
 }
 
