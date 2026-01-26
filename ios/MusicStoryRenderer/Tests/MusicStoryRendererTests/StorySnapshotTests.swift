@@ -104,7 +104,12 @@ final class StorySnapshotTests: XCTestCase {
     }
 
     func testLaunchDiagnostics() {
-        let store = StoryDocumentStore(bundleResourceURL: nil)
+        let store = StoryDocumentStore(
+            persistedStoryStore: MemoryPersistedRemoteStoryStore(),
+            recentLocalStoryStore: MemoryRecentLocalStoryStore(),
+            recencyStore: MemoryStoryRecencyStore(),
+            bundleResourceURL: nil
+        )
         store.loadBundledSampleIfAvailable(name: "missing-sample")
 
         let view = StoryLaunchView(
@@ -238,5 +243,61 @@ final class StorySnapshotTests: XCTestCase {
             artworkURL: nil,
             durationMilliseconds: nil,
         )
+    }
+}
+
+private final class MemoryPersistedRemoteStoryStore: PersistedRemoteStoryStoring {
+    private var story: PersistedRemoteStory?
+
+    init(story: PersistedRemoteStory? = nil) {
+        self.story = story
+    }
+
+    func load() throws -> PersistedRemoteStory? {
+        story
+    }
+
+    func save(_ story: PersistedRemoteStory) throws {
+        self.story = story
+    }
+
+    func delete() throws {
+        story = nil
+    }
+
+    func hasStory() -> Bool {
+        story != nil
+    }
+}
+
+private final class MemoryRecentLocalStoryStore: RecentLocalStoryStoring {
+    private var stories: [RecentLocalStory]
+
+    init(stories: [RecentLocalStory] = []) {
+        self.stories = stories
+    }
+
+    func load() throws -> [RecentLocalStory] {
+        stories
+    }
+
+    func save(_ stories: [RecentLocalStory]) throws {
+        self.stories = stories
+    }
+}
+
+private final class MemoryStoryRecencyStore: StoryRecencyStoring {
+    private var entries: [String: Date]
+
+    init(entries: [String: Date] = [:]) {
+        self.entries = entries
+    }
+
+    func lastOpened(for key: String) -> Date? {
+        entries[key]
+    }
+
+    func update(key: String, lastOpened: Date) throws {
+        entries[key] = lastOpened
     }
 }
