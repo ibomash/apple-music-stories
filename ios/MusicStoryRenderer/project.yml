@@ -91,6 +91,19 @@ targets:
       - target: MusicStoryRenderer
       - package: SnapshotTesting
 
+  MusicStoryRendererUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Tests/MusicStoryRendererUITests
+    settings:
+      base:
+        SWIFT_VERSION: 6.2
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MusicStoryRenderer
+
 schemes:
   MusicStoryRenderer:
     build:
@@ -100,3 +113,4 @@ schemes:
       targets:
         - MusicStoryRendererCoreTests
         - MusicStoryRendererTests
+        - MusicStoryRendererUITests

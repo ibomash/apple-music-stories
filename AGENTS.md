@@ -38,3 +38,4 @@ Follow `backlog/docs/docs/workflows/doc-11 - Landing-the-plane-workflow.md`.
 Key points:
 - Run the full workflow only when you made changes to publish or used Beads.
 - Push only when explicitly requested and commits exist.
+- When landing the plane, stage, commit, and push.

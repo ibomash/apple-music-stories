@@ -270,3 +270,25 @@ final class PlaybackNowPlayingMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.type, .track)
     }
 }
+
+final class AlbumPlaybackProgressTests: XCTestCase {
+    func testFractionUsesPlayedTime() {
+        let progress = AlbumPlaybackProgress(played: 30, total: 120)
+
+        XCTAssertEqual(progress.fraction, 0.25, accuracy: 0.0001)
+    }
+
+    func testFractionClampsToBounds() {
+        let underflow = AlbumPlaybackProgress(played: -10, total: 100)
+        let overflow = AlbumPlaybackProgress(played: 150, total: 100)
+
+        XCTAssertEqual(underflow.fraction, 0)
+        XCTAssertEqual(overflow.fraction, 1)
+    }
+
+    func testFractionHandlesZeroTotal() {
+        let progress = AlbumPlaybackProgress(played: 10, total: 0)
+
+        XCTAssertEqual(progress.fraction, 0)
+    }
+}

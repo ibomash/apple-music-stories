@@ -12,9 +12,14 @@ final class AppleMusicPlaybackController: ObservableObject {
     @Published private(set) var needsAuthorizationPrompt = false
     @Published private(set) var lastErrorMessage: String?
     @Published private(set) var nowPlayingMetadata: PlaybackNowPlayingMetadata?
+    @Published private(set) var nowPlayingTrackTitle: String?
+    @Published private(set) var nowPlayingAlbumTitle: String?
+    @Published private(set) var nowPlayingArtistName: String?
+    @Published private(set) var nowPlayingArtworkURL: URL?
     @Published private(set) var playlistCreationStatus: PlaylistCreationStatus = .idle
     @Published private(set) var playlistCreationProgress: PlaylistCreationProgress = .idle
     @Published private(set) var playlistCreationCounts: PlaylistCreationCounts = .empty
+    @Published private(set) var albumProgress: AlbumPlaybackProgress?
     private let applicationPlayer: ApplicationMusicPlayer
     private let systemPlayer: SystemMusicPlayer
     private let playbackEnabled: Bool
@@ -25,6 +30,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     private var activePlayer: ActivePlayer = .application
     private var playlistCreationStoryID: String?
     private var playlistCreationTask: Task<Void, Never>?
+    private var albumProgressContext: AlbumPlaybackContext?
     private let playlistLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MusicStoryRenderer", category: "PlaylistCreation")
 
     init(
@@ -60,11 +66,20 @@ final class AppleMusicPlaybackController: ObservableObject {
         nowPlayingMetadata ?? displayEntry.map { PlaybackNowPlayingMetadata(media: $0.media) }
     }
 
+    var canSkipToPreviousTrack: Bool {
+        authorizationStatus.allowsPlayback && playbackState != .stopped
+    }
+
+    var canSkipToNextTrack: Bool {
+        authorizationStatus.allowsPlayback && playbackState != .stopped
+    }
+
     func play(media: StoryMediaReference, intent: PlaybackIntent?) {
         if media.type == .musicVideo {
             openInMusic(for: media)
             return
         }
+        resetAlbumProgress()
         let resolvedIntent = resolveIntent(for: media, intent: intent)
         var state = queueState
         state.play(media: media, intent: resolvedIntent)
@@ -128,6 +143,32 @@ final class AppleMusicPlaybackController: ObservableObject {
             return
         }
         play(media: nextEntry.media, intent: nextEntry.intent)
+    }
+
+    func skipToPreviousTrack() {
+        guard authorizationStatus.allowsPlayback else {
+            needsAuthorizationPrompt = true
+            return
+        }
+        guard playbackEnabled else {
+            return
+        }
+        Task { @MainActor in
+            await skipToPreviousEntry()
+        }
+    }
+
+    func skipToNextTrack() {
+        guard authorizationStatus.allowsPlayback else {
+            needsAuthorizationPrompt = true
+            return
+        }
+        guard playbackEnabled else {
+            return
+        }
+        Task { @MainActor in
+            await skipToNextEntry()
+        }
     }
 
     func requestAuthorization() {
@@ -246,6 +287,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             }
             Task { @MainActor in
                 self.playbackState = self.mapPlaybackState(playerState.playbackStatus)
+                self.updateAlbumProgress(playbackTime: self.currentPlaybackTime(), currentEntry: playerQueue.currentEntry)
             }
         }
         queueObserver = playerQueue.objectWillChange.sink { [weak self] in
@@ -257,6 +299,8 @@ final class AppleMusicPlaybackController: ObservableObject {
                 if metadata != self.nowPlayingMetadata {
                     self.nowPlayingMetadata = metadata
                 }
+                self.updateNowPlayingDetails(currentEntry: playerQueue.currentEntry)
+                self.updateAlbumProgress(playbackTime: self.currentPlaybackTime(), currentEntry: playerQueue.currentEntry)
             }
         }
     }
@@ -280,6 +324,136 @@ final class AppleMusicPlaybackController: ObservableObject {
 
     private func makeMetadata() -> PlaybackNowPlayingMetadata? {
         displayEntry.map { PlaybackNowPlayingMetadata(media: $0.media) }
+    }
+
+    private func currentPlaybackTime() -> TimeInterval {
+        switch activePlayer {
+        case .application:
+            return applicationPlayer.playbackTime
+        case .system:
+            return systemPlayer.playbackTime
+        }
+    }
+
+    private func updateAlbumProgressContext(from album: Album) {
+        guard let context = AlbumPlaybackContext(album: album) else {
+            albumProgressContext = nil
+            albumProgress = nil
+            return
+        }
+        albumProgressContext = context
+        albumProgress = AlbumPlaybackProgress(played: 0, total: context.totalDuration)
+    }
+
+    private func updateAlbumProgress(playbackTime: TimeInterval, currentEntry: MusicKit.MusicPlayer.Queue.Entry?) {
+        guard queueState.nowPlaying?.media.type == .album else {
+            albumProgress = nil
+            return
+        }
+        guard let context = albumProgressContext,
+              let currentEntry,
+              let trackID = currentEntryItemID(currentEntry),
+              let index = context.index(for: trackID)
+        else {
+            albumProgress = nil
+            return
+        }
+        if let mediaID = queueState.nowPlaying?.media.appleMusicId,
+           mediaID != context.albumID.rawValue {
+            albumProgress = nil
+            return
+        }
+        let priorDuration = context.durationBeforeIndex(index)
+        let currentDuration = context.tracks[index].duration
+        let clampedPlaybackTime = min(max(playbackTime, 0), currentDuration)
+        let played = priorDuration + clampedPlaybackTime
+        albumProgress = AlbumPlaybackProgress(played: played, total: context.totalDuration)
+    }
+
+    private func updateNowPlayingDetails(currentEntry: MusicKit.MusicPlayer.Queue.Entry?) {
+        guard let currentEntry else {
+            nowPlayingTrackTitle = nil
+            nowPlayingAlbumTitle = nil
+            nowPlayingArtistName = nil
+            nowPlayingArtworkURL = nil
+            return
+        }
+        let artworkURL = currentEntry.artwork?.url(width: 640, height: 640)
+        nowPlayingArtworkURL = artworkURL
+        switch currentEntry.item {
+        case .none:
+            nowPlayingTrackTitle = nil
+            nowPlayingAlbumTitle = nil
+            nowPlayingArtistName = nil
+        case let .some(item):
+            switch item {
+            case let .song(song):
+                nowPlayingTrackTitle = song.title
+                nowPlayingAlbumTitle = song.albumTitle
+                nowPlayingArtistName = song.artistName
+            case let .musicVideo(video):
+                nowPlayingTrackTitle = video.title
+                nowPlayingAlbumTitle = video.albumTitle
+                nowPlayingArtistName = video.artistName
+            @unknown default:
+                nowPlayingTrackTitle = nil
+                nowPlayingAlbumTitle = nil
+                nowPlayingArtistName = nil
+            }
+        }
+    }
+
+    private func skipToPreviousEntry() async {
+        playbackState = .loading
+        do {
+            switch activePlayer {
+            case .application:
+                try await applicationPlayer.skipToPreviousEntry()
+            case .system:
+                try await systemPlayer.skipToPreviousEntry()
+            }
+            playbackState = .playing
+        } catch {
+            playbackState = .stopped
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func skipToNextEntry() async {
+        playbackState = .loading
+        do {
+            switch activePlayer {
+            case .application:
+                try await applicationPlayer.skipToNextEntry()
+            case .system:
+                try await systemPlayer.skipToNextEntry()
+            }
+            playbackState = .playing
+        } catch {
+            playbackState = .stopped
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func currentEntryItemID(_ entry: MusicKit.MusicPlayer.Queue.Entry) -> MusicItemID? {
+        switch entry.item {
+        case .none:
+            return nil
+        case let .some(item):
+            switch item {
+            case let .song(song):
+                return song.id
+            case let .musicVideo(video):
+                return video.id
+            @unknown default:
+                return nil
+            }
+        }
+    }
+
+    private func resetAlbumProgress() {
+        albumProgressContext = nil
+        albumProgress = nil
     }
 
     private func makePlaybackTarget(for media: StoryMediaReference, intent: PlaybackIntent) async throws -> MusicKitQueues {
@@ -321,11 +495,13 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     private func fetchAlbum(matching identifier: MusicItemID) async throws -> Album {
-        let request = MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: identifier)
+        var request = MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: identifier)
+        request.properties = [.tracks]
         let response = try await request.response()
         guard let item = response.items.first else {
             throw PlaybackError.missingCatalogItem
         }
+        updateAlbumProgressContext(from: item)
         return item
     }
 
@@ -437,6 +613,51 @@ final class AppleMusicPlaybackController: ObservableObject {
             return .idle
         }
         return playlistCreationStatus
+    }
+
+    private struct AlbumPlaybackContext {
+        let albumID: MusicItemID
+        let tracks: [AlbumTrackDuration]
+        let totalDuration: TimeInterval
+
+        init?(album: Album) {
+            guard let tracks = album.tracks, tracks.isEmpty == false else {
+                return nil
+            }
+            let durations = tracks.compactMap { track -> AlbumTrackDuration? in
+                let duration = track.duration ?? 0
+                guard duration > 0 else {
+                    return nil
+                }
+                return AlbumTrackDuration(id: track.id, duration: duration)
+            }
+            guard durations.isEmpty == false else {
+                return nil
+            }
+            let total = durations.reduce(0) { $0 + $1.duration }
+            guard total > 0 else {
+                return nil
+            }
+            albumID = album.id
+            self.tracks = durations
+            totalDuration = total
+        }
+
+        func index(for trackID: MusicItemID) -> Int? {
+            tracks.firstIndex { $0.id == trackID }
+        }
+
+        func durationBeforeIndex(_ index: Int) -> TimeInterval {
+            guard index > 0 else {
+                return 0
+            }
+            return tracks.prefix(index).reduce(0) { $0 + $1.duration }
+        }
+    }
+
+    private struct AlbumTrackDuration {
+        let id: MusicItemID
+        let duration: TimeInterval
     }
 
     private enum PendingAction {

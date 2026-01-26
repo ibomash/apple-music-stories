@@ -23,6 +23,8 @@ ios/MusicStoryRenderer/
 
 ### Workflow
 
+Default simulator: iPhone 17
+
 1. **Project generation**: Run `xcodegen generate` from `ios/MusicStoryRenderer` after structure changes. The generated `.xcodeproj` is gitignored.
 
 2. **Core library tests** (any platform with Swift): `swift test` from `ios/MusicStoryRenderer`.
@@ -31,13 +33,13 @@ ios/MusicStoryRenderer/
    ```bash
    cd ios/MusicStoryRenderer
    xcodegen generate
-   xcodebuild -project MusicStoryRenderer.xcodeproj \
-     -scheme MusicStoryRenderer \
-     -destination "platform=iOS Simulator,name=iPhone 16" \
-     build
-   xcodebuild test -project MusicStoryRenderer.xcodeproj \
-     -scheme MusicStoryRenderer \
-     -destination "platform=iOS Simulator,name=iPhone 16"
+    xcodebuild -project MusicStoryRenderer.xcodeproj \
+      -scheme MusicStoryRenderer \
+      -destination "platform=iOS Simulator,name=DEFAULT_SIMULATOR" \
+      build
+    xcodebuild test -project MusicStoryRenderer.xcodeproj \
+      -scheme MusicStoryRenderer \
+      -destination "platform=iOS Simulator,name=DEFAULT_SIMULATOR"
    ```
 
 ### Snapshot tests
@@ -49,7 +51,7 @@ Record baselines:
 cd ios/MusicStoryRenderer
 SNAPSHOT_RECORDING=1 xcodebuild test -project MusicStoryRenderer.xcodeproj \
   -scheme MusicStoryRenderer \
-  -destination "platform=iOS Simulator,name=iPhone 16"
+  -destination "platform=iOS Simulator,name=DEFAULT_SIMULATOR"
 ```
 
 Verify baselines:
@@ -57,7 +59,7 @@ Verify baselines:
 cd ios/MusicStoryRenderer
 xcodebuild test -project MusicStoryRenderer.xcodeproj \
   -scheme MusicStoryRenderer \
-  -destination "platform=iOS Simulator,name=iPhone 16"
+  -destination "platform=iOS Simulator,name=DEFAULT_SIMULATOR"
 ```
 
 4. **Agent builds**: Use XcodeBuildMCP tools after generating the project and setting session defaults. Example flow:

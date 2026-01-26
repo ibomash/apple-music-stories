@@ -274,31 +274,61 @@ struct PlaybackBarView: View {
     var onExpand: () -> Void
 
     var body: some View {
+        let albumTitle = controller.nowPlayingAlbumTitle
+            ?? (controller.displayMetadata?.type == .album ? controller.displayMetadata?.title : nil)
+        let trackTitle = controller.nowPlayingTrackTitle
+        let artistName = controller.nowPlayingArtistName ?? controller.displayMetadata?.subtitle
+        let titleText: String = {
+            if let albumTitle, let trackTitle, controller.displayMetadata?.type == .album {
+                return "\(albumTitle) · \(trackTitle)"
+            }
+            return controller.displayMetadata?.title ?? "Nothing queued"
+        }()
+
         VStack(spacing: 8) {
             if controller.needsAuthorizationPrompt {
                 PlaybackAuthorizationBanner(controller: controller)
             }
 
-            HStack(spacing: 12) {
-                NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL, size: 56)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(controller.displayMetadata?.title ?? "Nothing queued")
-                        .font(.subheadline.bold())
-                        .lineLimit(1)
-                    Text(controller.displayMetadata?.subtitle ?? "Tap to browse")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    NowPlayingArtworkView(url: controller.nowPlayingArtworkURL ?? controller.displayMetadata?.artworkURL, size: 56)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(titleText)
+                            .font(.subheadline.bold())
+                            .lineLimit(1)
+                        Text(artistName ?? "Tap to browse")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        controller.togglePlayPause()
+                    } label: {
+                        Image(systemName: controller.playbackState.actionSymbolName)
+                            .font(.title3.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.authorizationStatus.requiresAuthorization)
+                    Button {
+                        controller.skipToNextTrack()
+                    } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.title3.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.canSkipToNextTrack == false)
                 }
-                Spacer(minLength: 0)
-                Button {
-                    controller.togglePlayPause()
-                } label: {
-                    Image(systemName: controller.playbackState.actionSymbolName)
-                        .font(.title3.bold())
+
+                if let albumProgress = controller.albumProgress {
+                    ProgressView(value: albumProgress.fraction)
+                        .progressViewStyle(.linear)
+                        .tint(.primary)
+                        .frame(height: 4)
+                        .accessibilityLabel("Album progress")
+                        .accessibilityValue(Text(albumProgress.accessibilityValue))
                 }
-                .buttonStyle(.bordered)
-                .disabled(controller.authorizationStatus.requiresAuthorization)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -350,24 +380,45 @@ struct NowPlayingSheetView: View {
     @ObservedObject var controller: AppleMusicPlaybackController
 
     var body: some View {
+        let albumTitle = controller.nowPlayingAlbumTitle
+            ?? (controller.displayMetadata?.type == .album ? controller.displayMetadata?.title : nil)
+        let artistName = controller.nowPlayingArtistName ?? controller.displayMetadata?.subtitle
+        let trackTitle = controller.nowPlayingTrackTitle ?? controller.displayMetadata?.title
+
         NavigationStack {
             VStack(spacing: 24) {
                 if controller.needsAuthorizationPrompt {
                     PlaybackAuthorizationBanner(controller: controller)
                 }
 
-                NowPlayingArtworkView(url: controller.displayMetadata?.artworkURL, size: 180, cornerRadius: 20)
+                NowPlayingArtworkView(url: controller.nowPlayingArtworkURL ?? controller.displayMetadata?.artworkURL, size: 220, cornerRadius: 24)
 
-                VStack(spacing: 8) {
-                    Text(controller.displayMetadata?.title ?? "Nothing playing")
+                VStack(spacing: 6) {
+                    Text(trackTitle ?? "Nothing playing")
                         .font(.title2.bold())
                         .multilineTextAlignment(.center)
-                    Text(controller.displayMetadata?.subtitle ?? "Select a track to start")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let artistName {
+                        Text(artistName)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let albumTitle {
+                        Text(albumTitle)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
-                HStack(spacing: 24) {
+                HStack(spacing: 20) {
+                    Button {
+                        controller.skipToPreviousTrack()
+                    } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.title2.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(controller.canSkipToPreviousTrack == false)
+
                     Button {
                         controller.togglePlayPause()
                     } label: {
@@ -378,13 +429,13 @@ struct NowPlayingSheetView: View {
                     .disabled(controller.authorizationStatus.requiresAuthorization)
 
                     Button {
-                        controller.playNextInQueue()
+                        controller.skipToNextTrack()
                     } label: {
                         Image(systemName: "forward.fill")
                             .font(.title2.bold())
                     }
                     .buttonStyle(.bordered)
-                    .disabled(controller.queueState.upNext.isEmpty)
+                    .disabled(controller.canSkipToNextTrack == false)
                 }
 
                 if controller.displayMetadata?.type == .musicVideo {

@@ -388,3 +388,20 @@ struct PlaybackQueueState: Hashable {
         intent ?? .preview
     }
 }
+
+struct AlbumPlaybackProgress: Hashable {
+    let played: TimeInterval
+    let total: TimeInterval
+
+    var fraction: Double {
+        guard total > 0 else {
+            return 0
+        }
+        return min(max(played / total, 0), 1)
+    }
+
+    var accessibilityValue: String {
+        let percent = Int((fraction * 100).rounded())
+        return "\(percent)% complete"
+    }
+}

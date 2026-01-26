@@ -37,3 +37,7 @@ Show an album-level progress indicator across tracks in the playback UI.
 <!-- SECTION:NOTES:BEGIN -->
 Scope confirmed: album progress = sum played time across album tracks / total album duration.
 <!-- SECTION:NOTES:END -->
+
+## Execution
+- Beads: apple-music-stories-nla
+- Status: Done
