@@ -341,6 +341,7 @@ struct PlaybackBarView: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 20)
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("playback-bar")
     }
 }
 
@@ -391,7 +392,12 @@ struct NowPlayingSheetView: View {
                     PlaybackAuthorizationBanner(controller: controller)
                 }
 
-                NowPlayingArtworkView(url: controller.nowPlayingArtworkURL ?? controller.displayMetadata?.artworkURL, size: 220, cornerRadius: 24)
+                NowPlayingArtworkView(
+                    url: controller.nowPlayingArtworkURL ?? controller.displayMetadata?.artworkURL,
+                    size: 220,
+                    cornerRadius: 24
+                )
+                .accessibilityIdentifier("now-playing-artwork")
 
                 VStack(spacing: 6) {
                     Text(trackTitle ?? "Nothing playing")
@@ -462,9 +468,10 @@ struct NowPlayingSheetView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 16)
+            .padding(.top, 32)
             .navigationTitle("Now Playing")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
@@ -473,7 +480,7 @@ struct NowPlayingSheetView: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }
 }

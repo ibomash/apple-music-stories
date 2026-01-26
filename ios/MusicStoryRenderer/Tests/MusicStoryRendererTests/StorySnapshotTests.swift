@@ -93,6 +93,16 @@ final class StorySnapshotTests: XCTestCase {
         assertSnapshot(for: view, named: "now-playing-sheet")
     }
 
+    func testNowPlayingSheetLongTitles() {
+        let controller = AppleMusicPlaybackController(playbackEnabled: false)
+        controller.updateAuthorizationStatus(.authorized)
+        controller.play(media: makeLongTrack(), intent: .preview)
+        controller.queue(media: makeAlternateTrack(), intent: .preview)
+
+        let view = NowPlayingSheetView(controller: controller)
+        assertSnapshot(for: view, named: "now-playing-sheet-long-titles")
+    }
+
     func testLaunchDiagnostics() {
         let store = StoryDocumentStore(bundleResourceURL: nil)
         store.loadBundledSampleIfAvailable(name: "missing-sample")
@@ -203,6 +213,18 @@ final class StorySnapshotTests: XCTestCase {
             artist: "Signal Bloom",
             artworkURL: nil,
             durationMilliseconds: 204_000,
+        )
+    }
+
+    private func makeLongTrack() -> StoryMediaReference {
+        StoryMediaReference(
+            key: "trk-03",
+            type: .track,
+            appleMusicId: "222222222",
+            title: "Roman's Revenge (feat. Eminem) - Expanded Edition Bonus Track",
+            artist: "Nicki Minaj and Friends Featuring Special Guests",
+            artworkURL: nil,
+            durationMilliseconds: 198_000,
         )
     }
 
