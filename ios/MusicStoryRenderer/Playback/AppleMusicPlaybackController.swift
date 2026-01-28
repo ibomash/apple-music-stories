@@ -26,6 +26,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     private let lastPlayedAlbumStore: LastPlayedAlbumStoring
     private let systemSnapshotProvider: () -> SystemPlaybackSnapshot
     private let scrobbleHandler: PlaybackScrobbleHandling?
+    private let diagnosticLogger: DiagnosticLogging?
     private var pendingAction: PendingAction?
     private var isRequestingAuthorization = false
     private var playbackStatusObserver: AnyCancellable?
@@ -42,6 +43,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         systemPlayer: SystemMusicPlayer = .shared,
         lastPlayedAlbumStore: LastPlayedAlbumStoring = UserDefaultsLastPlayedAlbumStore(),
         scrobbleHandler: PlaybackScrobbleHandling? = nil,
+        diagnosticLogger: DiagnosticLogging? = nil,
         systemSnapshotProvider: (() -> SystemPlaybackSnapshot)? = nil
     ) {
         self.playbackEnabled = playbackEnabled
@@ -49,6 +51,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         self.systemPlayer = systemPlayer
         self.lastPlayedAlbumStore = lastPlayedAlbumStore
         self.scrobbleHandler = scrobbleHandler
+        self.diagnosticLogger = diagnosticLogger
         self.systemSnapshotProvider = systemSnapshotProvider ?? {
             let currentEntry = systemPlayer.queue.currentEntry
             let (albumTitle, artistName) = AppleMusicPlaybackController.albumTitleAndArtist(from: currentEntry)
@@ -101,6 +104,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             openInMusic(for: media)
             return
         }
+        let wasQueueEmpty = queueState.nowPlaying == nil && queueState.upNext.isEmpty
         resetAlbumProgress()
         let resolvedIntent = resolveIntent(for: media, intent: intent)
         var state = queueState
@@ -109,6 +113,10 @@ final class AppleMusicPlaybackController: ObservableObject {
         pendingAction = .play(PlaybackQueueEntry(media: media, intent: resolvedIntent))
         lastErrorMessage = nil
         nowPlayingMetadata = PlaybackNowPlayingMetadata(media: media)
+        logEvent("play_requested", metadata: mediaMetadata(for: media, intent: resolvedIntent))
+        if wasQueueEmpty {
+            logEvent("queue_started", metadata: mediaMetadata(for: media, intent: resolvedIntent))
+        }
 
         guard authorizationStatus.allowsPlayback else {
             needsAuthorizationPrompt = true
@@ -131,6 +139,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         var state = queueState
         state.enqueue(media: media, intent: resolvedIntent)
         queueState = state
+        logEvent("queue_enqueued", metadata: mediaMetadata(for: media, intent: resolvedIntent))
 
         guard authorizationStatus.allowsPlayback else {
             needsAuthorizationPrompt = true
@@ -175,6 +184,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         guard playbackEnabled else {
             return
         }
+        logEvent("playback_skip_previous")
         Task { @MainActor in
             await skipToPreviousEntry()
         }
@@ -188,6 +198,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         guard playbackEnabled else {
             return
         }
+        logEvent("playback_skip_next")
         Task { @MainActor in
             await skipToNextEntry()
         }
@@ -249,9 +260,15 @@ final class AppleMusicPlaybackController: ObservableObject {
             try await startMusicKitPlayback(with: queues)
             playbackState = .playing
             persistLastPlayedAlbumIfNeeded(for: media)
+            logEvent("playback_started", metadata: mediaMetadata(for: media, intent: intent))
         } catch {
             playbackState = .stopped
             lastErrorMessage = error.localizedDescription
+            logEvent(
+                "playback_failed",
+                message: error.localizedDescription,
+                metadata: mediaMetadata(for: media, intent: intent)
+            )
         }
     }
 
@@ -266,17 +283,21 @@ final class AppleMusicPlaybackController: ObservableObject {
             do {
                 try await applicationPlayer.play()
                 playbackState = .playing
+                logEvent("playback_resumed", metadata: playbackMetadata())
             } catch {
                 playbackState = .stopped
                 lastErrorMessage = error.localizedDescription
+                logEvent("playback_failed", message: error.localizedDescription, metadata: playbackMetadata())
             }
         case .system:
             do {
                 try await systemPlayer.play()
                 playbackState = .playing
+                logEvent("playback_resumed", metadata: playbackMetadata())
             } catch {
                 playbackState = .stopped
                 lastErrorMessage = error.localizedDescription
+                logEvent("playback_failed", message: error.localizedDescription, metadata: playbackMetadata())
             }
         }
     }
@@ -289,6 +310,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             systemPlayer.pause()
         }
         playbackState = .paused
+        logEvent("playback_paused", metadata: playbackMetadata())
     }
 
     private func persistLastPlayedAlbumIfNeeded(for media: StoryMediaReference) {
@@ -750,6 +772,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             lastErrorMessage = "Missing Apple Music identifier for this item."
             return
         }
+        logEvent("playback_open_in_music", metadata: mediaMetadata(for: target, intent: nil))
         let descriptor = MPMusicPlayerStoreQueueDescriptor(storeIDs: [identifier])
         MPMusicPlayerController.systemMusicPlayer.openToPlay(descriptor)
     }
@@ -762,6 +785,11 @@ final class AppleMusicPlaybackController: ObservableObject {
         guard document.media.isEmpty == false else {
             playlistCreationStatus = .failed(message: "No Apple Music items found in this story.")
             playlistCreationProgress = .idle
+            logEvent(
+                "playlist_creation_failed",
+                message: "No Apple Music items found in this story.",
+                metadata: playlistMetadata(for: document, totalCount: 0)
+            )
             return
         }
         guard authorizationStatus.allowsPlayback else {
@@ -769,6 +797,11 @@ final class AppleMusicPlaybackController: ObservableObject {
             playlistCreationStatus = .failed(message: "Sign in to Apple Music to create playlists.")
             playlistCreationProgress = .idle
             playlistCreationCounts = .empty
+            logEvent(
+                "playlist_creation_failed",
+                message: "Authorization required",
+                metadata: playlistMetadata(for: document, totalCount: document.media.count)
+            )
             return
         }
 
@@ -776,6 +809,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         playlistCreationProgress = .collectingItems
         playlistCreationCounts = .empty
         playlistLogger.info("Starting playlist creation for story \(document.id, privacy: .public)")
+        logEvent("playlist_creation_started", metadata: playlistMetadata(for: document, totalCount: document.media.count))
         playlistCreationTask?.cancel()
         playlistCreationTask = Task { @MainActor in
             await createStoryPlaylist(for: document)
@@ -792,6 +826,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         playlistCreationStatus = .failed(message: "Playlist creation cancelled.")
         playlistCreationProgress = .idle
         playlistCreationCounts = .empty
+        logEvent("playlist_creation_cancelled")
     }
 
     func playlistStatus(for document: StoryDocument) -> PlaylistCreationStatus {
@@ -900,6 +935,52 @@ final class AppleMusicPlaybackController: ObservableObject {
         return trimmed
     }
 
+    private func logEvent(_ event: String, message: String? = nil, metadata: [String: String] = [:]) {
+        diagnosticLogger?.log(event: event, message: message, metadata: metadata)
+    }
+
+    private func mediaMetadata(for media: StoryMediaReference, intent: PlaybackIntent?) -> [String: String] {
+        var metadata: [String: String] = [
+            "media_type": media.type.displayName,
+            "title": media.title,
+            "artist": media.artist,
+        ]
+        if let appleMusicId = sanitizedAppleMusicID(media.appleMusicId) {
+            metadata["apple_music_id"] = appleMusicId
+        }
+        if let intent {
+            metadata["intent"] = intent.usePreview ? "preview" : "full"
+        }
+        return metadata
+    }
+
+    private func playbackMetadata() -> [String: String] {
+        guard let entry = displayEntry else {
+            return [:]
+        }
+        return mediaMetadata(for: entry.media, intent: entry.intent)
+    }
+
+    private func playlistMetadata(
+        for document: StoryDocument,
+        totalCount: Int,
+        added: Int? = nil,
+        failed: Int? = nil
+    ) -> [String: String] {
+        var metadata: [String: String] = [
+            "story_id": document.id,
+            "story_title": document.title,
+            "total_count": String(totalCount),
+        ]
+        if let added {
+            metadata["added"] = String(added)
+        }
+        if let failed {
+            metadata["failed"] = String(failed)
+        }
+        return metadata
+    }
+
     private func persistedAlbumKey(for appleMusicId: String) -> String {
         "persisted-album-\(appleMusicId)"
     }
@@ -961,13 +1042,28 @@ final class AppleMusicPlaybackController: ObservableObject {
             playlistCreationStatus = .created(name: playlistName, url: playlist.url)
             playlistCreationProgress = .idle
             playlistCreationCounts = PlaylistCreationCounts(total: totalCount, added: added, failed: failed)
+            logEvent(
+                "playlist_created",
+                metadata: playlistMetadata(
+                    for: document,
+                    totalCount: totalCount,
+                    added: added,
+                    failed: failed
+                )
+            )
         } catch is CancellationError {
             playlistCreationStatus = .failed(message: "Playlist creation cancelled.")
             playlistCreationProgress = .idle
+            logEvent("playlist_creation_cancelled")
         } catch {
             playlistCreationStatus = .failed(message: error.localizedDescription)
             playlistCreationProgress = .idle
             playlistCreationCounts = .empty
+            logEvent(
+                "playlist_creation_failed",
+                message: error.localizedDescription,
+                metadata: playlistMetadata(for: document, totalCount: document.media.count)
+            )
         }
     }
 

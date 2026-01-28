@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct StoryLaunchView: View {
     @ObservedObject var store: StoryDocumentStore
     @ObservedObject var scrobbleManager: LastFMScrobbleManager
+    @ObservedObject var diagnosticLogger: DiagnosticLogManager
     let availableStories: [StoryLaunchItem]
     let onOpenStory: () -> Void
     let onSelectStory: (StoryLaunchItem) -> Void
@@ -30,7 +32,7 @@ struct StoryLaunchView: View {
                         onDeleteStory: onDeleteCatalogStory,
                     )
                     StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
-                    StorySettingsSection(scrobbleManager: scrobbleManager)
+                    StorySettingsSection(scrobbleManager: scrobbleManager, diagnosticLogger: diagnosticLogger)
                     if store.diagnostics.isEmpty == false {
                         StoryDiagnosticsSection(diagnostics: store.diagnostics)
                     }
@@ -568,6 +570,7 @@ private struct StoryDiagnosticsSection: View {
 
 private struct StorySettingsSection: View {
     @ObservedObject var scrobbleManager: LastFMScrobbleManager
+    @ObservedObject var diagnosticLogger: DiagnosticLogManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -600,6 +603,7 @@ private struct StorySettingsSection: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("lastfm-settings-link")
+            DiagnosticLoggingCard(diagnosticLogger: diagnosticLogger)
         }
     }
 
@@ -759,4 +763,81 @@ private struct StoryDiagnosticRow: View {
             .orange
         }
     }
+}
+
+private struct DiagnosticLoggingCard: View {
+    @ObservedObject var diagnosticLogger: DiagnosticLogManager
+    @State private var isShowingShareSheet = false
+    @State private var exportURL: URL?
+    @State private var exportError: String?
+    @State private var isExporting = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $diagnosticLogger.isEnabled) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Diagnostic Logging")
+                        .font(.headline)
+                    Text("Keeps last 24 hours; disabling clears logs.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .accessibilityIdentifier("diagnostic-logging-toggle")
+
+            Button {
+                exportError = nil
+                isExporting = true
+                Task {
+                    let url = await diagnosticLogger.prepareExport()
+                    await MainActor.run {
+                        isExporting = false
+                        if let url {
+                            exportURL = url
+                            isShowingShareSheet = true
+                        } else {
+                            exportError = "No logs available to export."
+                        }
+                    }
+                }
+            } label: {
+                Label(isExporting ? "Preparing..." : "Export Logs", systemImage: "square.and.arrow.up")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(diagnosticLogger.hasLogs == false || isExporting)
+
+            if diagnosticLogger.hasLogs == false {
+                Text("No logs captured yet.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let exportError {
+                Text(exportError)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .sheet(isPresented: $isShowingShareSheet) {
+            if let exportURL {
+                ShareSheet(activityItems: [exportURL])
+            }
+        }
+    }
+}
+
+private struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

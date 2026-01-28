@@ -15,3 +15,4 @@
 - macOS: create the Xcode project, configure signing/MusicKit capability, and run simulator/device builds.
 - TASK-31 should land before or alongside TASK-26 so device testing can validate Apple Music playback.
 - Diagnostics banner snapshots depend on the banner UI landing; keep TASK-35 flexible until the banner exists.
+- Launch screen settings now include opt-in diagnostic logging with JSONL export.

@@ -38,6 +38,7 @@ final class StoryDocumentStore: ObservableObject {
     private let persistedStoryStore: PersistedRemoteStoryStoring
     private let recentLocalStoryStore: RecentLocalStoryStoring
     private let recencyStore: StoryRecencyStoring
+    private let diagnosticLogger: DiagnosticLogging?
     private let bundleResourceURL: URL?
     private var hasLoadedSample = false
     private var activeSecurityScopedURL: URL?
@@ -50,6 +51,7 @@ final class StoryDocumentStore: ObservableObject {
         persistedStoryStore: PersistedRemoteStoryStoring = FilePersistedRemoteStoryStore(),
         recentLocalStoryStore: RecentLocalStoryStoring = FileRecentLocalStoryStore(),
         recencyStore: StoryRecencyStoring = FileStoryRecencyStore(),
+        diagnosticLogger: DiagnosticLogging? = nil,
         bundleResourceURL: URL? = Bundle.main.resourceURL,
     ) {
         self.loader = loader
@@ -58,6 +60,7 @@ final class StoryDocumentStore: ObservableObject {
         self.persistedStoryStore = persistedStoryStore
         self.recentLocalStoryStore = recentLocalStoryStore
         self.recencyStore = recencyStore
+        self.diagnosticLogger = diagnosticLogger
         self.bundleResourceURL = bundleResourceURL
         availableStories = loadAvailableStories()
     }
@@ -68,6 +71,7 @@ final class StoryDocumentStore: ObservableObject {
     }
 
     func loadStory(from url: URL) {
+        logEvent("story_load_started", metadata: storyMetadata(for: url))
         state = .loading
         isPersistedStoryActive = false
         startSecurityScopedAccess(for: url)
@@ -78,6 +82,13 @@ final class StoryDocumentStore: ObservableObject {
             if let document = parsed.document {
                 state = .loaded(document)
                 isPersistedStoryActive = false
+                logEvent(
+                    "story_load_succeeded",
+                    metadata: [
+                        "story_id": document.id,
+                        "source": sourceLabel(for: package.storyURL),
+                    ]
+                )
                 recordStoryOpened(document: document, sourceURL: package.storyURL)
             } else {
                 handleLoadError("Story parsing failed.")
@@ -88,6 +99,10 @@ final class StoryDocumentStore: ObservableObject {
     }
 
     func loadRemoteStory(from url: URL) async {
+        logEvent(
+            "remote_story_load_started",
+            metadata: ["host": url.host ?? "unknown"]
+        )
         state = .loading
         isPersistedStoryActive = false
         diagnostics = []
@@ -98,6 +113,13 @@ final class StoryDocumentStore: ObservableObject {
             diagnostics = parsed.diagnostics
             if let document = parsed.document {
                 state = .loaded(document)
+                logEvent(
+                    "remote_story_load_succeeded",
+                    metadata: [
+                        "story_id": document.id,
+                        "host": url.host ?? "unknown",
+                    ]
+                )
                 persistRemoteStory(package: package)
                 recordStoryOpened(document: document, sourceURL: package.storyURL)
             } else {
@@ -155,10 +177,12 @@ final class StoryDocumentStore: ObservableObject {
                     message: "Unable to delete the saved story. Try again.",
                 ),
             ]
+            logEvent("persisted_story_delete_failed", message: error.localizedDescription)
             return
         }
         persistedStoryURL = nil
         hasPersistedStory = false
+        logEvent("persisted_story_deleted")
         let isFailureState: Bool
         switch state {
         case .failed:
@@ -213,6 +237,7 @@ final class StoryDocumentStore: ObservableObject {
         state = .failed(message)
         isPersistedStoryActive = false
         clearSecurityScopedAccess()
+        logEvent("story_load_failed", message: message)
     }
 
     private func loadPersistedStory(_ story: PersistedRemoteStory) -> Bool {
@@ -245,6 +270,7 @@ final class StoryDocumentStore: ObservableObject {
                     message: "Story loaded, but it could not be saved for offline use.",
                 ),
             )
+            logEvent("remote_story_persist_failed", message: error.localizedDescription)
         }
     }
 
@@ -409,7 +435,15 @@ final class StoryDocumentStore: ObservableObject {
                     message: "Story opened, but it could not be saved to recents.",
                 )
             )
+            logEvent("story_recency_save_failed", message: error.localizedDescription)
         }
+        logEvent(
+            "story_opened",
+            metadata: [
+                "story_id": document.id,
+                "source": source.displayTitle.lowercased(),
+            ]
+        )
         if source == .recentLocal {
             saveRecentLocalStory(document: document, sourceURL: sourceURL)
         }
@@ -435,6 +469,30 @@ final class StoryDocumentStore: ObservableObject {
             entries = Array(entries.prefix(maxEntries))
         }
         try? recentLocalStoryStore.save(entries)
+    }
+
+    private func logEvent(_ event: String, message: String? = nil, metadata: [String: String] = [:]) {
+        diagnosticLogger?.log(event: event, message: message, metadata: metadata)
+    }
+
+    private func storyMetadata(for url: URL) -> [String: String] {
+        var metadata: [String: String] = ["source": sourceLabel(for: url)]
+        if url.isFileURL {
+            metadata["name"] = url.lastPathComponent
+        } else if let host = url.host {
+            metadata["host"] = host
+        }
+        return metadata
+    }
+
+    private func sourceLabel(for url: URL) -> String {
+        if isBundledStoryURL(url) {
+            return "bundled"
+        }
+        if url.isFileURL {
+            return "local"
+        }
+        return "remote"
     }
 
     private func deleteRecentLocalStory(_ item: StoryLaunchItem) {

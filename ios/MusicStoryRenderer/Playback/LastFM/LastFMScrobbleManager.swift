@@ -21,6 +21,7 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
     private let clock: () -> Date
     private let uuidProvider: () -> UUID
     private let logger: Logger
+    private let diagnosticLogger: DiagnosticLogging?
     private let maxLogEntries = 50
     private let ledgerRetentionDays = 30
     private let baseRetryDelay: TimeInterval = 30
@@ -43,7 +44,8 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
         candidateStore: LastFMScrobbleCandidateStoring = UserDefaultsLastFMScrobbleCandidateStore(),
         policy: LastFMScrobblePolicy = LastFMScrobblePolicy(),
         clock: @escaping () -> Date = Date.init,
-        uuidProvider: @escaping () -> UUID = UUID.init
+        uuidProvider: @escaping () -> UUID = UUID.init,
+        diagnosticLogger: DiagnosticLogging? = nil
     ) {
         self.configuration = configuration
         if let configuration {
@@ -59,6 +61,7 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
         self.policy = policy
         self.clock = clock
         self.uuidProvider = uuidProvider
+        self.diagnosticLogger = diagnosticLogger
         self.isConfigured = configuration != nil
         self.logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MusicStoryRenderer", category: "LastFM")
         let existingSession = sessionStore.load()
@@ -362,6 +365,17 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
             album: track.album,
             status: status,
             message: message
+        )
+        diagnosticLogger?.log(
+            event: "scrobble_event",
+            message: message,
+            metadata: [
+                "status": status.rawValue,
+                "track_title": track.title,
+                "artist": track.artist,
+                "album": track.album ?? "",
+                "identifier": track.identifier ?? "",
+            ]
         )
         logEntries.insert(entry, at: 0)
         if logEntries.count > maxLogEntries {

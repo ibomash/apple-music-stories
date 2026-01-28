@@ -14,6 +14,7 @@ struct StoryRootView: View {
     @StateObject private var store: StoryDocumentStore
     @StateObject private var playbackController: AppleMusicPlaybackController
     @StateObject private var scrobbleManager: LastFMScrobbleManager
+    @StateObject private var diagnosticLogger: DiagnosticLogManager
     @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingNowPlaying = false
     @State private var isShowingStoryPicker = false
@@ -25,10 +26,17 @@ struct StoryRootView: View {
     @State private var shouldOpenStoryAfterLoad = false
 
     init() {
-        let scrobbleManager = LastFMScrobbleManager()
+        let diagnosticLogger = DiagnosticLogManager()
+        let scrobbleManager = LastFMScrobbleManager(diagnosticLogger: diagnosticLogger)
         _scrobbleManager = StateObject(wrappedValue: scrobbleManager)
-        _playbackController = StateObject(wrappedValue: AppleMusicPlaybackController(scrobbleHandler: scrobbleManager))
-        _store = StateObject(wrappedValue: StoryDocumentStore())
+        _diagnosticLogger = StateObject(wrappedValue: diagnosticLogger)
+        _playbackController = StateObject(
+            wrappedValue: AppleMusicPlaybackController(
+                scrobbleHandler: scrobbleManager,
+                diagnosticLogger: diagnosticLogger
+            )
+        )
+        _store = StateObject(wrappedValue: StoryDocumentStore(diagnosticLogger: diagnosticLogger))
     }
 
     var body: some View {
@@ -37,6 +45,7 @@ struct StoryRootView: View {
                 StoryLaunchView(
                     store: store,
                     scrobbleManager: scrobbleManager,
+                    diagnosticLogger: diagnosticLogger,
                     availableStories: store.availableStories,
                     onOpenStory: openStory,
                     onSelectStory: openStoryFromCatalog,
@@ -115,6 +124,7 @@ struct StoryRootView: View {
             }
         }
         .task {
+            diagnosticLogger.log(event: "app_launch")
             store.loadInitialStory()
         }
         .animation(.easeInOut(duration: 0.2), value: playbackController.shouldShowPlaybackBar)

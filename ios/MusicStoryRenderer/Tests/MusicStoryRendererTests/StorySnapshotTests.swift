@@ -1,4 +1,5 @@
 @testable import MusicStoryRenderer
+import Foundation
 import SnapshotTesting
 import SwiftUI
 import XCTest
@@ -115,6 +116,7 @@ final class StorySnapshotTests: XCTestCase {
         let view = StoryLaunchView(
             store: store,
             scrobbleManager: makeScrobbleManager(),
+            diagnosticLogger: makeDiagnosticLogger(),
             availableStories: store.availableStories,
             onOpenStory: {},
             onSelectStory: { _ in },
@@ -134,6 +136,17 @@ final class StorySnapshotTests: XCTestCase {
             pendingStore: InMemoryLastFMPendingScrobbleStore(),
             ledgerStore: InMemoryLastFMDedupLedgerStore(),
             candidateStore: InMemoryLastFMScrobbleCandidateStore()
+        )
+    }
+
+    private func makeDiagnosticLogger() -> DiagnosticLogManager {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        let defaults = UserDefaults(suiteName: "StorySnapshotTests.\(UUID().uuidString)") ?? .standard
+        return DiagnosticLogManager(
+            store: DiagnosticLogStore(baseDirectoryURL: tempRoot),
+            defaults: defaults
         )
     }
 

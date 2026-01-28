@@ -29,6 +29,10 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
   - `PlaybackBarView` shows the mini player + authorization CTA.
   - `NowPlayingSheetView` shows expanded playback controls and metadata.
 
+### Diagnostics
+- `DiagnosticLogManager` captures opt-in diagnostic events into a JSONL file under Application Support.
+- Logs retain the last 24 hours, clear when disabled, and export via the system share sheet.
+
 ## Data Flow
 1. `StoryRootView` loads a story via `StoryDocumentStore`.
 2. The store parses the package and publishes `StoryDocument` + diagnostics.
