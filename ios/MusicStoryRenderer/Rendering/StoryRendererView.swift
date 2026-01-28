@@ -783,10 +783,12 @@ struct MediaReferenceView: View {
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .contextMenu {
-            Button {
-                playbackController.openInMusic(for: media)
-            } label: {
-                Label("Open in Music", systemImage: "music.note")
+            if let mediaLinkURL {
+                Button {
+                    openURL(mediaLinkURL)
+                } label: {
+                    Label("Open in Apple Music", systemImage: "music.note")
+                }
             }
             if canOpenInAlbums, let albumsLinkURL {
                 Button {
