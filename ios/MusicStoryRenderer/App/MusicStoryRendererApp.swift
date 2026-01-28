@@ -114,8 +114,10 @@ struct StoryRootView: View {
         .onChange(of: scenePhase) { phase in
             switch phase {
             case .active:
+                playbackController.handleAppForeground()
                 scrobbleManager.flushPending(reason: .foreground)
             case .background:
+                playbackController.handleAppBackground()
                 scrobbleManager.flushPending(reason: .background)
             case .inactive:
                 break

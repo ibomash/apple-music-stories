@@ -113,3 +113,7 @@ XcodeBuildMCP_launch_app_sim bundleId="BUNDLE_ID_FROM_GET_APP_BUNDLE_ID"
 - MVVM architecture with views separate from view models.
 - Prefer async/await for async code.
 - Use SwiftUI for all new views.
+
+## Diagnostics
+
+- Default to adding diagnostic logging for new features where there is a logical place to inspect behavior, or ask whether logging should be added when unsure.

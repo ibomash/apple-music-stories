@@ -31,7 +31,10 @@ final class AppleMusicPlaybackController: ObservableObject {
     private var isRequestingAuthorization = false
     private var playbackStatusObserver: AnyCancellable?
     private var queueObserver: AnyCancellable?
-    private var activePlayer: ActivePlayer = .application
+    private var activePlayer: PlaybackActivePlayer = .application
+    private var playbackTickTask: Task<Void, Never>?
+    private let playbackTickInterval: TimeInterval = 2
+    private var isInForeground = true
     private var playlistCreationStoryID: String?
     private var playlistCreationTask: Task<Void, Never>?
     private var albumProgressContext: AlbumPlaybackContext?
@@ -76,6 +79,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     deinit {
         playbackStatusObserver?.cancel()
         queueObserver?.cancel()
+        playbackTickTask?.cancel()
     }
 
     var shouldShowPlaybackBar: Bool {
@@ -120,7 +124,7 @@ final class AppleMusicPlaybackController: ObservableObject {
 
         guard authorizationStatus.allowsPlayback else {
             needsAuthorizationPrompt = true
-            playbackState = .stopped
+            setPlaybackState(.stopped)
             return
         }
 
@@ -254,15 +258,15 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     private func startPlayback(for media: StoryMediaReference, intent: PlaybackIntent) async {
-        playbackState = .loading
+        setPlaybackState(.loading)
         do {
             let queues = try await makePlaybackTarget(for: media, intent: intent)
             try await startMusicKitPlayback(with: queues)
-            playbackState = .playing
+            setPlaybackState(.playing)
             persistLastPlayedAlbumIfNeeded(for: media)
             logEvent("playback_started", metadata: mediaMetadata(for: media, intent: intent))
         } catch {
-            playbackState = .stopped
+            setPlaybackState(.stopped)
             lastErrorMessage = error.localizedDescription
             logEvent(
                 "playback_failed",
@@ -274,28 +278,28 @@ final class AppleMusicPlaybackController: ObservableObject {
 
     private func resumePlayback() async {
         guard queueState.nowPlaying != nil else {
-            playbackState = .stopped
+            setPlaybackState(.stopped)
             return
         }
-        playbackState = .loading
+        setPlaybackState(.loading)
         switch activePlayer {
         case .application:
             do {
                 try await applicationPlayer.play()
-                playbackState = .playing
+                setPlaybackState(.playing)
                 logEvent("playback_resumed", metadata: playbackMetadata())
             } catch {
-                playbackState = .stopped
+                setPlaybackState(.stopped)
                 lastErrorMessage = error.localizedDescription
                 logEvent("playback_failed", message: error.localizedDescription, metadata: playbackMetadata())
             }
         case .system:
             do {
                 try await systemPlayer.play()
-                playbackState = .playing
+                setPlaybackState(.playing)
                 logEvent("playback_resumed", metadata: playbackMetadata())
             } catch {
-                playbackState = .stopped
+                setPlaybackState(.stopped)
                 lastErrorMessage = error.localizedDescription
                 logEvent("playback_failed", message: error.localizedDescription, metadata: playbackMetadata())
             }
@@ -309,7 +313,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         case .system:
             systemPlayer.pause()
         }
-        playbackState = .paused
+        setPlaybackState(.paused)
         logEvent("playback_paused", metadata: playbackMetadata())
     }
 
@@ -387,9 +391,34 @@ final class AppleMusicPlaybackController: ObservableObject {
 
     private func syncWithSystemPlayerState(using snapshot: SystemPlaybackSnapshot? = nil) {
         let snapshot = snapshot ?? systemSnapshotProvider()
-        playbackState = mapPlaybackState(snapshot.playbackStatus)
+        setPlaybackState(mapPlaybackState(snapshot.playbackStatus))
         updateNowPlayingDetails(currentEntry: snapshot.currentEntry)
         updateAlbumProgress(playbackTime: snapshot.playbackTime, currentEntry: snapshot.currentEntry)
+    }
+
+    func handleAppForeground() {
+        isInForeground = true
+        if playbackEnabled {
+            startObservingPlayerState()
+        }
+        syncWithActivePlayerState()
+        let queue = currentPlayerQueue()
+        emitPlaybackSnapshot(reason: .foreground, currentEntry: queue.currentEntry)
+    }
+
+    func handleAppBackground() {
+        isInForeground = false
+        stopPlaybackTick()
+        let queue = currentPlayerQueue()
+        emitPlaybackSnapshot(reason: .background, currentEntry: queue.currentEntry)
+    }
+
+    private func syncWithActivePlayerState() {
+        let state = currentPlayerState()
+        let queue = currentPlayerQueue()
+        setPlaybackState(mapPlaybackState(state.playbackStatus))
+        updateNowPlayingDetails(currentEntry: queue.currentEntry)
+        updateAlbumProgress(playbackTime: currentPlaybackTime(), currentEntry: queue.currentEntry)
     }
 
     private func restoreAlbumProgressContextIfNeeded(
@@ -449,9 +478,10 @@ final class AppleMusicPlaybackController: ObservableObject {
                 return
             }
             Task { @MainActor in
-                self.playbackState = self.mapPlaybackState(playerState.playbackStatus)
+                let nextState = self.mapPlaybackState(playerState.playbackStatus)
+                self.setPlaybackState(nextState)
                 self.updateAlbumProgress(playbackTime: self.currentPlaybackTime(), currentEntry: playerQueue.currentEntry)
-                self.notifyScrobbleHandler(currentEntry: playerQueue.currentEntry)
+                self.emitPlaybackSnapshot(reason: .stateChange, currentEntry: playerQueue.currentEntry)
             }
         }
         queueObserver = playerQueue.objectWillChange.sink { [weak self] in
@@ -465,27 +495,59 @@ final class AppleMusicPlaybackController: ObservableObject {
                 }
                 self.updateNowPlayingDetails(currentEntry: playerQueue.currentEntry)
                 self.updateAlbumProgress(playbackTime: self.currentPlaybackTime(), currentEntry: playerQueue.currentEntry)
-                self.notifyScrobbleHandler(currentEntry: playerQueue.currentEntry)
+                self.emitPlaybackSnapshot(reason: .queueChange, currentEntry: playerQueue.currentEntry)
             }
         }
     }
 
-    private func notifyScrobbleHandler(currentEntry: MusicKit.MusicPlayer.Queue.Entry?) {
+    private func emitPlaybackSnapshot(reason: PlaybackSnapshotReason, currentEntry: MusicKit.MusicPlayer.Queue.Entry?) {
+        let snapshot = makePlaybackSnapshot(currentEntry: currentEntry, reason: reason)
+        logEvent("playback_snapshot", metadata: playbackSnapshotMetadata(for: snapshot))
         guard let scrobbleHandler else {
             return
         }
-        let snapshot = makePlaybackSnapshot(currentEntry: currentEntry)
         scrobbleHandler.handlePlaybackSnapshot(snapshot)
     }
 
-    private func makePlaybackSnapshot(currentEntry: MusicKit.MusicPlayer.Queue.Entry?) -> PlaybackSnapshot {
+    private func makePlaybackSnapshot(
+        currentEntry: MusicKit.MusicPlayer.Queue.Entry?,
+        reason: PlaybackSnapshotReason
+    ) -> PlaybackSnapshot {
         PlaybackSnapshot(
             track: makePlaybackTrack(from: currentEntry),
             playbackState: playbackState,
             playbackTime: currentPlaybackTime(),
+            reason: reason,
+            activePlayer: activePlayer,
             timestamp: Date(),
             intent: queueState.nowPlaying?.intent
         )
+    }
+
+    private func playbackSnapshotMetadata(for snapshot: PlaybackSnapshot) -> [String: String] {
+        var metadata: [String: String] = [
+            "reason": snapshot.reason.rawValue,
+            "active_player": snapshot.activePlayer.rawValue,
+            "playback_state": snapshot.playbackState.rawValue,
+            "playback_time": String(format: "%.3f", snapshot.playbackTime),
+        ]
+        if let intent = snapshot.intent {
+            metadata["intent"] = intent.usePreview ? "preview" : "full"
+        }
+        if let track = snapshot.track {
+            metadata["track_title"] = track.title
+            metadata["track_artist"] = track.artist
+            if let album = track.album {
+                metadata["track_album"] = album
+            }
+            if let identifier = track.identifier, identifier.isEmpty == false {
+                metadata["track_id"] = identifier
+            }
+            if let duration = track.duration {
+                metadata["track_duration"] = String(format: "%.3f", duration)
+            }
+        }
+        return metadata
     }
 
     private func makePlaybackTrack(from currentEntry: MusicKit.MusicPlayer.Queue.Entry?) -> PlaybackTrack? {
@@ -541,6 +603,81 @@ final class AppleMusicPlaybackController: ObservableObject {
         case .system:
             return systemPlayer.playbackTime
         }
+    }
+
+    private func currentPlayerState() -> MusicKit.MusicPlayer.State {
+        switch activePlayer {
+        case .application:
+            return applicationPlayer.state
+        case .system:
+            return systemPlayer.state
+        }
+    }
+
+    private func currentPlayerQueue() -> MusicKit.MusicPlayer.Queue {
+        switch activePlayer {
+        case .application:
+            return applicationPlayer.queue
+        case .system:
+            return systemPlayer.queue
+        }
+    }
+
+    private func setPlaybackState(_ nextState: PlaybackState) {
+        if playbackState != nextState {
+            playbackState = nextState
+        }
+        updatePlaybackTicking()
+    }
+
+    private func updatePlaybackTicking() {
+        guard playbackEnabled else {
+            stopPlaybackTick()
+            return
+        }
+        if playbackState == .playing, isInForeground {
+            startPlaybackTickIfNeeded()
+        } else {
+            stopPlaybackTick()
+        }
+    }
+
+    private func startPlaybackTickIfNeeded() {
+        guard playbackTickTask == nil else {
+            return
+        }
+        let clampedInterval = max(1.0, min(playbackTickInterval, 5.0))
+        let nanoseconds = UInt64(clampedInterval * 1_000_000_000)
+        playbackTickTask = Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: nanoseconds)
+                } catch {
+                    break
+                }
+                if Task.isCancelled {
+                    break
+                }
+                guard self.playbackState == .playing, self.isInForeground else {
+                    continue
+                }
+                self.handlePlaybackTick()
+            }
+        }
+    }
+
+    private func stopPlaybackTick() {
+        playbackTickTask?.cancel()
+        playbackTickTask = nil
+    }
+
+    private func handlePlaybackTick() {
+        let queue = currentPlayerQueue()
+        updateAlbumProgress(playbackTime: currentPlaybackTime(), currentEntry: queue.currentEntry)
+        emitPlaybackSnapshot(reason: .tick, currentEntry: queue.currentEntry)
     }
 
     private func updateAlbumProgressContext(from album: Album) {
@@ -612,7 +749,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     private func skipToPreviousEntry() async {
-        playbackState = .loading
+        setPlaybackState(.loading)
         do {
             switch activePlayer {
             case .application:
@@ -620,15 +757,15 @@ final class AppleMusicPlaybackController: ObservableObject {
             case .system:
                 try await systemPlayer.skipToPreviousEntry()
             }
-            playbackState = .playing
+            setPlaybackState(.playing)
         } catch {
-            playbackState = .stopped
+            setPlaybackState(.stopped)
             lastErrorMessage = error.localizedDescription
         }
     }
 
     private func skipToNextEntry() async {
-        playbackState = .loading
+        setPlaybackState(.loading)
         do {
             switch activePlayer {
             case .application:
@@ -636,9 +773,9 @@ final class AppleMusicPlaybackController: ObservableObject {
             case .system:
                 try await systemPlayer.skipToNextEntry()
             }
-            playbackState = .playing
+            setPlaybackState(.playing)
         } catch {
-            playbackState = .stopped
+            setPlaybackState(.stopped)
             lastErrorMessage = error.localizedDescription
         }
     }
@@ -731,7 +868,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         return item
     }
 
-    private func updateActivePlayer(_ nextPlayer: ActivePlayer) {
+    private func updateActivePlayer(_ nextPlayer: PlaybackActivePlayer) {
         guard activePlayer != nextPlayer else {
             return
         }
@@ -891,11 +1028,6 @@ final class AppleMusicPlaybackController: ObservableObject {
 
     private enum PendingAction {
         case play(PlaybackQueueEntry)
-    }
-
-    private enum ActivePlayer {
-        case application
-        case system
     }
 
     private enum PlaybackError: LocalizedError {
