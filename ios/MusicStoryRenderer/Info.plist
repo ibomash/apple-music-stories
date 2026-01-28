@@ -20,6 +20,23 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>net.bomash.illya.MusicStories.lastfm</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>musicstories-lastfm</string>
+			</array>
+		</dict>
+	</array>
+	<key>LastfmApiKey</key>
+	<string>$(LASTFM_API_KEY)</string>
+	<key>LastfmApiSecret</key>
+	<string>$(LASTFM_API_SECRET)</string>
+	<key>LastfmCallbackScheme</key>
+	<string>musicstories-lastfm</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>albums</string>

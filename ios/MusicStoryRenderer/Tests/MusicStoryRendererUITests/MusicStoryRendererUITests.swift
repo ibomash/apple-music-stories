@@ -29,4 +29,15 @@ final class MusicStoryRendererUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Now Playing"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Done"].exists)
     }
+
+    func testLastFMSettingsAccessible() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let settingsButton = app.buttons["lastfm-settings-link"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Last.fm"].waitForExistence(timeout: 5))
+    }
 }

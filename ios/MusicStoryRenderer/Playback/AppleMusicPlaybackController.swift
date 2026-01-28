@@ -25,6 +25,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     private let playbackEnabled: Bool
     private let lastPlayedAlbumStore: LastPlayedAlbumStoring
     private let systemSnapshotProvider: () -> SystemPlaybackSnapshot
+    private let scrobbleHandler: PlaybackScrobbleHandling?
     private var pendingAction: PendingAction?
     private var isRequestingAuthorization = false
     private var playbackStatusObserver: AnyCancellable?
@@ -40,12 +41,14 @@ final class AppleMusicPlaybackController: ObservableObject {
         applicationPlayer: ApplicationMusicPlayer = .shared,
         systemPlayer: SystemMusicPlayer = .shared,
         lastPlayedAlbumStore: LastPlayedAlbumStoring = UserDefaultsLastPlayedAlbumStore(),
+        scrobbleHandler: PlaybackScrobbleHandling? = nil,
         systemSnapshotProvider: (() -> SystemPlaybackSnapshot)? = nil
     ) {
         self.playbackEnabled = playbackEnabled
         self.applicationPlayer = applicationPlayer
         self.systemPlayer = systemPlayer
         self.lastPlayedAlbumStore = lastPlayedAlbumStore
+        self.scrobbleHandler = scrobbleHandler
         self.systemSnapshotProvider = systemSnapshotProvider ?? {
             let currentEntry = systemPlayer.queue.currentEntry
             let (albumTitle, artistName) = AppleMusicPlaybackController.albumTitleAndArtist(from: currentEntry)
@@ -426,6 +429,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             Task { @MainActor in
                 self.playbackState = self.mapPlaybackState(playerState.playbackStatus)
                 self.updateAlbumProgress(playbackTime: self.currentPlaybackTime(), currentEntry: playerQueue.currentEntry)
+                self.notifyScrobbleHandler(currentEntry: playerQueue.currentEntry)
             }
         }
         queueObserver = playerQueue.objectWillChange.sink { [weak self] in
@@ -439,6 +443,50 @@ final class AppleMusicPlaybackController: ObservableObject {
                 }
                 self.updateNowPlayingDetails(currentEntry: playerQueue.currentEntry)
                 self.updateAlbumProgress(playbackTime: self.currentPlaybackTime(), currentEntry: playerQueue.currentEntry)
+                self.notifyScrobbleHandler(currentEntry: playerQueue.currentEntry)
+            }
+        }
+    }
+
+    private func notifyScrobbleHandler(currentEntry: MusicKit.MusicPlayer.Queue.Entry?) {
+        guard let scrobbleHandler else {
+            return
+        }
+        let snapshot = makePlaybackSnapshot(currentEntry: currentEntry)
+        scrobbleHandler.handlePlaybackSnapshot(snapshot)
+    }
+
+    private func makePlaybackSnapshot(currentEntry: MusicKit.MusicPlayer.Queue.Entry?) -> PlaybackSnapshot {
+        PlaybackSnapshot(
+            track: makePlaybackTrack(from: currentEntry),
+            playbackState: playbackState,
+            playbackTime: currentPlaybackTime(),
+            timestamp: Date(),
+            intent: queueState.nowPlaying?.intent
+        )
+    }
+
+    private func makePlaybackTrack(from currentEntry: MusicKit.MusicPlayer.Queue.Entry?) -> PlaybackTrack? {
+        guard let currentEntry else {
+            return nil
+        }
+        switch currentEntry.item {
+        case .none:
+            return nil
+        case let .some(item):
+            switch item {
+            case let .song(song):
+                return PlaybackTrack(
+                    identifier: song.id.rawValue,
+                    title: song.title,
+                    artist: song.artistName,
+                    album: song.albumTitle,
+                    duration: song.duration
+                )
+            case .musicVideo:
+                return nil
+            @unknown default:
+                return nil
             }
         }
     }

@@ -4,6 +4,7 @@
 
 # Local secrets
 LocalSecrets.xcconfig
+ios/MusicStoryRenderer/Config/Secrets.xcconfig
 
 # macOS metadata
 .DS_Store

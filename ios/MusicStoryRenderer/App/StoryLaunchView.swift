@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StoryLaunchView: View {
     @ObservedObject var store: StoryDocumentStore
+    @ObservedObject var scrobbleManager: LastFMScrobbleManager
     let availableStories: [StoryLaunchItem]
     let onOpenStory: () -> Void
     let onSelectStory: (StoryLaunchItem) -> Void
@@ -29,6 +30,7 @@ struct StoryLaunchView: View {
                         onDeleteStory: onDeleteCatalogStory,
                     )
                     StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
+                    StorySettingsSection(scrobbleManager: scrobbleManager)
                     if store.diagnostics.isEmpty == false {
                         StoryDiagnosticsSection(diagnostics: store.diagnostics)
                     }
@@ -561,6 +563,60 @@ private struct StoryDiagnosticsSection: View {
         .padding(16)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct StorySettingsSection: View {
+    @ObservedObject var scrobbleManager: LastFMScrobbleManager
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Settings")
+                .font(.headline)
+            NavigationLink {
+                LastFMSettingsView(scrobbleManager: scrobbleManager)
+            } label: {
+                HStack(alignment: .center, spacing: 16) {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .font(.title3)
+                        .foregroundStyle(.primary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Last.fm Scrobbling")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text(statusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("lastfm-settings-link")
+        }
+    }
+
+    private var statusText: String {
+        if scrobbleManager.isConfigured == false {
+            return "API key not configured"
+        }
+        switch scrobbleManager.authState {
+        case .signedIn(let session):
+            return "Signed in as \(session.username)"
+        case .authorizing:
+            return "Signing in..."
+        case .exchanging:
+            return "Completing sign-in..."
+        case .signedOut:
+            return "Not signed in"
+        }
     }
 }
 

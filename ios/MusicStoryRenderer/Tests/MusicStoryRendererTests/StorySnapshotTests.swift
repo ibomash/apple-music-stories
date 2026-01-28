@@ -114,6 +114,7 @@ final class StorySnapshotTests: XCTestCase {
 
         let view = StoryLaunchView(
             store: store,
+            scrobbleManager: makeScrobbleManager(),
             availableStories: store.availableStories,
             onOpenStory: {},
             onSelectStory: { _ in },
@@ -123,6 +124,17 @@ final class StorySnapshotTests: XCTestCase {
             onDeleteCatalogStory: { _ in }
         )
         assertSnapshot(for: view, named: "launch-diagnostics")
+    }
+
+    private func makeScrobbleManager() -> LastFMScrobbleManager {
+        LastFMScrobbleManager(
+            configuration: nil,
+            sessionStore: InMemoryLastFMSessionStore(),
+            logStore: InMemoryLastFMScrobbleLogStore(),
+            pendingStore: InMemoryLastFMPendingScrobbleStore(),
+            ledgerStore: InMemoryLastFMDedupLedgerStore(),
+            candidateStore: InMemoryLastFMScrobbleCandidateStore()
+        )
     }
 
     private func assertSnapshot<V: View>(for view: V, named name: String) {

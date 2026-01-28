@@ -11,8 +11,10 @@ struct MusicStoryRendererApp: App {
 }
 
 struct StoryRootView: View {
-    @StateObject private var store = StoryDocumentStore()
-    @StateObject private var playbackController = AppleMusicPlaybackController()
+    @StateObject private var store: StoryDocumentStore
+    @StateObject private var playbackController: AppleMusicPlaybackController
+    @StateObject private var scrobbleManager: LastFMScrobbleManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingNowPlaying = false
     @State private var isShowingStoryPicker = false
     @State private var isShowingURLPrompt = false
@@ -22,11 +24,19 @@ struct StoryRootView: View {
     @State private var isShowingStory = false
     @State private var shouldOpenStoryAfterLoad = false
 
+    init() {
+        let scrobbleManager = LastFMScrobbleManager()
+        _scrobbleManager = StateObject(wrappedValue: scrobbleManager)
+        _playbackController = StateObject(wrappedValue: AppleMusicPlaybackController(scrobbleHandler: scrobbleManager))
+        _store = StateObject(wrappedValue: StoryDocumentStore())
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             NavigationStack {
                 StoryLaunchView(
                     store: store,
+                    scrobbleManager: scrobbleManager,
                     availableStories: store.availableStories,
                     onOpenStory: openStory,
                     onSelectStory: openStoryFromCatalog,
@@ -90,6 +100,18 @@ struct StoryRootView: View {
         .onChange(of: urlInput) { _ in
             if isLoadingURL == false {
                 urlLoadError = nil
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .active:
+                scrobbleManager.flushPending(reason: .foreground)
+            case .background:
+                scrobbleManager.flushPending(reason: .background)
+            case .inactive:
+                break
+            @unknown default:
+                break
             }
         }
         .task {
