@@ -7,7 +7,7 @@ final class StoryParserTests: XCTestCase {
         <Section id=\"intro\" title=\"Intro\" layout=\"lede\">
         The signal flickers into focus.
 
-        <MediaRef ref=\"trk-1\" intent=\"preview\" />
+        <MediaRef ref=\"trk-1\" intent=\"full\" />
         </Section>
         """)
 
@@ -42,7 +42,7 @@ final class StoryParserTests: XCTestCase {
         XCTAssertEqual(parsed.document?.sections.first?.layout, "body")
     }
 
-    func testInvalidIntentDefaultsToPreview() {
+    func testInvalidIntentDefaultsToFull() {
         let story = makeStory(body: """
         <Section id=\"intro\" title=\"Intro\">
         <MediaRef ref=\"trk-1\" intent=\"surprise\" />
@@ -58,7 +58,7 @@ final class StoryParserTests: XCTestCase {
         guard case let .media(_, _, intent) = document.sections.first?.blocks.first else {
             return XCTFail("Expected media block")
         }
-        XCTAssertEqual(intent, .preview)
+        XCTAssertEqual(intent, .full)
     }
 
     func testReportsTextOutsideSections() {
@@ -81,7 +81,7 @@ final class StoryParserTests: XCTestCase {
             <Section id=\"intro\" title=\"Intro\" layout=\"lede\">
             Hello.
 
-            <MediaRef ref=\"trk-1\" intent=\"preview\" />
+            <MediaRef ref=\"trk-1\" intent=\"full\" />
             </Section>
             """,
             media: """
@@ -178,13 +178,13 @@ final class PlaybackQueueStateTests: XCTestCase {
         XCTAssertEqual(state.status(for: media), .queued)
     }
 
-    func testPlayUsesPreviewIntentByDefault() {
+    func testPlayUsesFullIntentByDefault() {
         var state = PlaybackQueueState()
         let media = makeMedia(key: "trk-2")
 
         state.play(media: media, intent: nil)
 
-        XCTAssertEqual(state.nowPlaying?.intent, .preview)
+        XCTAssertEqual(state.nowPlaying?.intent, .full)
         XCTAssertEqual(state.status(for: media), .playing)
     }
 
@@ -192,7 +192,7 @@ final class PlaybackQueueStateTests: XCTestCase {
         var state = PlaybackQueueState()
         let media = makeMedia(key: "trk-3")
 
-        state.enqueue(media: media, intent: .preview)
+        state.enqueue(media: media, intent: .full)
         state.play(media: media, intent: .full)
 
         XCTAssertEqual(state.status(for: media), .playing)
@@ -203,8 +203,8 @@ final class PlaybackQueueStateTests: XCTestCase {
         var state = PlaybackQueueState()
         let media = makeMedia(key: "trk-4")
 
-        state.play(media: media, intent: .preview)
-        state.enqueue(media: media, intent: .preview)
+        state.play(media: media, intent: .full)
+        state.enqueue(media: media, intent: .full)
 
         XCTAssertTrue(state.upNext.isEmpty)
     }
@@ -214,7 +214,7 @@ final class PlaybackQueueStateTests: XCTestCase {
         let media = makeMedia(key: "trk-5")
 
         state.enqueue(media: media, intent: .full)
-        state.enqueue(media: media, intent: .preview)
+        state.enqueue(media: media, intent: .full)
 
         XCTAssertEqual(state.upNext.count, 1)
     }

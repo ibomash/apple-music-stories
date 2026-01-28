@@ -1056,7 +1056,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     private func resolveIntent(for media: StoryMediaReference, intent: PlaybackIntent?) -> PlaybackIntent {
-        return intent ?? .preview
+        return intent ?? .full
     }
 
     private func sanitizedAppleMusicID(_ value: String) -> String? {

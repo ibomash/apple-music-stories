@@ -17,6 +17,7 @@ npm-debug.log
 logs/
 scripts/__pycache__/
 .auth/
+ios/diagnostic-logs-*.jsonl
 
 # XcodeGen output
 ios/MusicStoryRenderer/*.xcodeproj

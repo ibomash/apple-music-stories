@@ -322,7 +322,7 @@ struct StorySectionView: View {
             }
             if let leadMediaKey = section.leadMediaKey {
                 if let media = mediaLookup[leadMediaKey] {
-                    MediaReferenceView(media: media, intent: .preview, playbackController: playbackController)
+                    MediaReferenceView(media: media, intent: .full, playbackController: playbackController)
                 } else {
                     MissingMediaReferenceView(referenceKey: leadMediaKey)
                 }

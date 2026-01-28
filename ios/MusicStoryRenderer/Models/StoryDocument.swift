@@ -385,7 +385,7 @@ struct PlaybackQueueState: Hashable {
     }
 
     private func resolvedIntent(_ intent: PlaybackIntent?) -> PlaybackIntent {
-        intent ?? .preview
+        intent ?? .full
     }
 }
 

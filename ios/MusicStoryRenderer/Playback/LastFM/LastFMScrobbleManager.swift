@@ -71,6 +71,9 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
         self.ledgerEntries = ledgerStore.load()
         self.candidate = candidateStore.load()
         super.init()
+        if let candidate {
+            logCandidateEvent("scrobble_candidate_restored", candidate: candidate)
+        }
         pruneLedgerIfNeeded()
     }
 
@@ -203,6 +206,14 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
         }
         candidate = newCandidate
         candidateStore.save(newCandidate)
+        var metadata: [String: String] = [
+            "snapshot_reason": snapshot.reason.rawValue,
+            "playback_state": snapshot.playbackState.rawValue,
+        ]
+        if let intent = snapshot.intent {
+            metadata["intent"] = intent.usePreview ? "preview" : "full"
+        }
+        logCandidateEvent("scrobble_candidate_started", candidate: newCandidate, metadata: metadata)
     }
 
     private func updateCandidate(using snapshot: PlaybackSnapshot) {
@@ -223,7 +234,16 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
         guard let candidate else {
             return
         }
-        if policy.shouldScrobble(candidate: candidate) {
+        let shouldScrobble = policy.shouldScrobble(candidate: candidate)
+        let playedSeconds = max(0, candidate.lastPlaybackTime)
+        let thresholdSeconds = scrobbleThresholdSeconds(for: candidate)
+        var metadata = candidateMetadata(for: candidate)
+        metadata["finalize_reason"] = reason
+        metadata["played_seconds"] = String(format: "%.3f", playedSeconds)
+        metadata["threshold_seconds"] = String(format: "%.3f", thresholdSeconds)
+        metadata["eligible"] = shouldScrobble ? "true" : "false"
+        diagnosticLogger?.log(event: "scrobble_candidate_finalized", message: nil, metadata: metadata)
+        if shouldScrobble {
             queueScrobble(candidate)
         } else {
             appendLog(for: candidate.track, status: .skipped, message: "Playback ended before scrobble threshold (\(reason))")
@@ -366,22 +386,58 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
             status: status,
             message: message
         )
-        diagnosticLogger?.log(
-            event: "scrobble_event",
-            message: message,
-            metadata: [
-                "status": status.rawValue,
-                "track_title": track.title,
-                "artist": track.artist,
-                "album": track.album ?? "",
-                "identifier": track.identifier ?? "",
-            ]
-        )
+        var metadata = trackMetadata(for: track)
+        metadata["status"] = status.rawValue
+        diagnosticLogger?.log(event: "scrobble_event", message: message, metadata: metadata)
         logEntries.insert(entry, at: 0)
         if logEntries.count > maxLogEntries {
             logEntries = Array(logEntries.prefix(maxLogEntries))
         }
         logStore.save(logEntries)
+    }
+
+    private func trackMetadata(for track: LastFMTrack) -> [String: String] {
+        [
+            "track_title": track.title,
+            "artist": track.artist,
+            "album": track.album ?? "",
+            "identifier": track.identifier ?? "",
+        ]
+    }
+
+    private func candidateMetadata(for candidate: LastFMScrobbleCandidate) -> [String: String] {
+        var metadata = trackMetadata(for: candidate.track)
+        metadata["started_at"] = String(Int(candidate.startedAt.timeIntervalSince1970))
+        metadata["last_updated_at"] = String(Int(candidate.lastUpdatedAt.timeIntervalSince1970))
+        metadata["playback_time"] = String(format: "%.3f", candidate.lastPlaybackTime)
+        metadata["did_send_now_playing"] = candidate.didSendNowPlaying ? "true" : "false"
+        if let duration = candidate.track.duration {
+            metadata["duration"] = String(format: "%.3f", duration)
+        }
+        return metadata
+    }
+
+    private func logCandidateEvent(
+        _ event: String,
+        candidate: LastFMScrobbleCandidate,
+        metadata extraMetadata: [String: String] = [:]
+    ) {
+        var metadata = candidateMetadata(for: candidate)
+        for (key, value) in extraMetadata {
+            metadata[key] = value
+        }
+        diagnosticLogger?.log(event: event, message: nil, metadata: metadata)
+    }
+
+    private func scrobbleThresholdSeconds(for candidate: LastFMScrobbleCandidate) -> TimeInterval {
+        let duration = candidate.track.duration ?? 0
+        if duration > 0 {
+            if duration >= policy.longTrackMinimumSeconds {
+                return max(0, duration - policy.completionGraceSeconds)
+            }
+            return max(0, duration * policy.completionFraction)
+        }
+        return max(0, policy.fallbackMinimumSeconds)
     }
 
     private func trackKey(for track: LastFMTrack) -> String {

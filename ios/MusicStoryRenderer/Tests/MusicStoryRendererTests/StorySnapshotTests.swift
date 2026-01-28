@@ -41,7 +41,7 @@ final class StorySnapshotTests: XCTestCase {
     func testStoryRendererView() {
         let controller = AppleMusicPlaybackController(playbackEnabled: false)
         controller.updateAuthorizationStatus(.authorized)
-        controller.queue(media: makeTrack(), intent: .preview)
+        controller.queue(media: makeTrack(), intent: .full)
 
         let view = StoryRendererView(document: makeStoryDocument(), playbackController: controller)
         assertSnapshot(for: view, named: "story-renderer")
@@ -51,7 +51,7 @@ final class StorySnapshotTests: XCTestCase {
         let controller = AppleMusicPlaybackController(playbackEnabled: false)
         controller.updateAuthorizationStatus(.authorized)
 
-        let view = MediaReferenceView(media: makeTrack(), intent: .preview, playbackController: controller)
+        let view = MediaReferenceView(media: makeTrack(), intent: .full, playbackController: controller)
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.systemBackground))
@@ -63,7 +63,7 @@ final class StorySnapshotTests: XCTestCase {
         let controller = AppleMusicPlaybackController(playbackEnabled: false)
         controller.updateAuthorizationStatus(.authorized)
 
-        let view = MediaReferenceView(media: makeVideo(), intent: .preview, playbackController: controller)
+        let view = MediaReferenceView(media: makeVideo(), intent: .full, playbackController: controller)
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(.systemBackground))
@@ -74,7 +74,7 @@ final class StorySnapshotTests: XCTestCase {
     func testPlaybackBar() {
         let controller = AppleMusicPlaybackController(playbackEnabled: false)
         controller.updateAuthorizationStatus(.authorized)
-        controller.queue(media: makeTrack(), intent: .preview)
+        controller.queue(media: makeTrack(), intent: .full)
 
         let view = PlaybackBarView(controller: controller, onExpand: {})
             .padding(.top, 24)
@@ -87,8 +87,8 @@ final class StorySnapshotTests: XCTestCase {
     func testNowPlayingSheet() {
         let controller = AppleMusicPlaybackController(playbackEnabled: false)
         controller.updateAuthorizationStatus(.authorized)
-        controller.play(media: makeTrack(), intent: .preview)
-        controller.queue(media: makeAlternateTrack(), intent: .preview)
+        controller.play(media: makeTrack(), intent: .full)
+        controller.queue(media: makeAlternateTrack(), intent: .full)
 
         let view = NowPlayingSheetView(controller: controller)
         assertSnapshot(for: view, named: "now-playing-sheet")
@@ -97,8 +97,8 @@ final class StorySnapshotTests: XCTestCase {
     func testNowPlayingSheetLongTitles() {
         let controller = AppleMusicPlaybackController(playbackEnabled: false)
         controller.updateAuthorizationStatus(.authorized)
-        controller.play(media: makeLongTrack(), intent: .preview)
-        controller.queue(media: makeAlternateTrack(), intent: .preview)
+        controller.play(media: makeLongTrack(), intent: .full)
+        controller.queue(media: makeAlternateTrack(), intent: .full)
 
         let view = NowPlayingSheetView(controller: controller)
         assertSnapshot(for: view, named: "now-playing-sheet-long-titles")
@@ -201,7 +201,7 @@ final class StorySnapshotTests: XCTestCase {
                         .media(
                             id: "intro-media",
                             referenceKey: "trk-01",
-                            intent: .preview,
+                            intent: .full,
                         ),
                     ],
                 ),

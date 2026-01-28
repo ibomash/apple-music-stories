@@ -793,11 +793,11 @@ struct StoryParser {
         referenceKey: String,
     ) -> PlaybackIntent {
         guard let value else {
-            return .preview
+            return .full
         }
         switch value.lowercased() {
         case "preview":
-            return .preview
+            return .full
         case "full":
             return .full
         case "autoplay":
@@ -807,7 +807,7 @@ struct StoryParser {
                 code: "invalid_intent",
                 message: "MediaRef '\(referenceKey)' uses unsupported intent '\(value)'.",
             ))
-            return .preview
+            return .full
         }
     }
 
