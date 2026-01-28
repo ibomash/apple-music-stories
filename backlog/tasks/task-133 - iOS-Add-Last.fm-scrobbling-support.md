@@ -4,7 +4,7 @@ title: 'iOS: Add Last.fm scrobbling support'
 status: Done
 assignee: []
 created_date: '2026-01-26 23:29'
-updated_date: '2026-01-27 00:23'
+updated_date: '2026-01-28 20:57'
 labels: []
 dependencies: []
 ---
@@ -54,6 +54,14 @@ References:
 - track.scrobble: https://www.last.fm/api/show/track.scrobble
 - Scrobbling guidance: https://www.last.fm/pt/api/scrobbling
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Follow-up Beads tasks: apple-music-stories-93e (treat all plays as full intent), apple-music-stories-607 (playback event architecture write-up).
+
+Additional Beads tasks: apple-music-stories-9s0 (playback sampling), apple-music-stories-c1f (playback diagnostics), apple-music-stories-1x4 (scrobble completion guard).
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 

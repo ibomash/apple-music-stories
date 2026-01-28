@@ -53,6 +53,37 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 - Once authorized, playback resumes using the pending action and `SystemMusicPlayer`.
 - Playback metadata is refreshed on player state/queue changes.
 
+## Playback Events + Scrobbling
+The scrobbling pipeline depends on reliable start/progress/end signals. MusicKit only emits changes for state and queue; playback time does not continuously change the observable objects. The event architecture therefore needs explicit sampling and derived events.
+
+### Event sources
+- `MusicPlayer.State` changes via `state.objectWillChange` (playback status transitions).
+- `MusicPlayer.Queue` changes via `queue.objectWillChange` (current entry changes).
+- `MusicPlayer.playbackTime` sampled on a periodic tick while playing.
+- App lifecycle events (`willResignActive`, `didEnterBackground`, `willEnterForeground`) to capture final snapshots and resume tracking.
+
+### Derived event semantics
+- Track start: when `queue.currentEntry` changes to a new track or playback transitions to `.playing` with a different item than the last snapshot.
+- Progress update: periodic tick while playing; update `PlaybackSnapshot` with current playback time.
+- Track end: when `queue.currentEntry` changes away from the current track, or playback transitions to `.stopped` with the queue empty.
+- Completion guard (skip vs scrobble): only scrobble on track-end if playback time meets a near-completion window:
+  - If duration >= 60s: `playbackTime >= duration - 30s`.
+  - If duration < 60s: `playbackTime >= duration * 0.8` (short-track fallback).
+  - If duration missing: require `playbackTime >= 30s`.
+- Interruptions: when playback state changes to `.paused` or `.loading`, keep the candidate but stop ticking; resume ticking on `.playing`.
+
+### Recommended pipeline
+- Introduce a `PlaybackEventCoordinator` (can live inside `AppleMusicPlaybackController`) that emits `PlaybackSnapshot` events.
+- On active player changes, rebind observers to the new player (`ApplicationMusicPlayer` vs `SystemMusicPlayer`).
+- Use a timer or Task loop to sample `playbackTime` every 1-5 seconds while playing.
+- Emit snapshots with a `reason` (state-change, queue-change, tick, lifecycle) so downstream logging can explain missing events.
+- Keep a `lastSnapshot` to detect track changes and to suppress duplicate updates.
+
+### Diagnostics for verification
+- Log `playback_snapshot` with track id, playback state, playback time, active player, and reason.
+- Log `scrobble_candidate` transitions (start/update/finalize) with the same reason and track metadata.
+- Use the diagnostic JSONL export to confirm that each track has a start event, progressive playback times, and a finalization event.
+
 ## Testing
 - `StoryParserTests` and `StoryPackageLoaderTests` cover parsing + loading.
 - `PlaybackQueueStateTests` cover queue behavior.
