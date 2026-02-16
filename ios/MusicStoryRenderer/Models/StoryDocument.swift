@@ -221,6 +221,19 @@ enum StoryMediaType: String, Hashable {
             return nil
         }
     }
+
+    var storageValue: String {
+        switch self {
+        case .track:
+            return "track"
+        case .album:
+            return "album"
+        case .playlist:
+            return "playlist"
+        case .musicVideo:
+            return "music-video"
+        }
+    }
 }
 
 struct PlaybackIntent: Hashable {

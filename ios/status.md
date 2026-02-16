@@ -11,6 +11,7 @@
 
 ## Notes
 - Story renderer includes a playlist creation CTA for story media.
+- Playback resume persistence now saves media + track + playback time and can recover across relaunch even when system now playing does not match exactly.
 - Linux: focus on SwiftPM core tests, docs, and fixtures; UI changes still require macOS validation.
 - macOS: create the Xcode project, configure signing/MusicKit capability, and run simulator/device builds.
 - TASK-31 should land before or alongside TASK-26 so device testing can validate Apple Music playback.

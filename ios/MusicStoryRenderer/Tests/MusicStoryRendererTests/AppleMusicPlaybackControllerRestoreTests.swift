@@ -4,31 +4,42 @@ import XCTest
 
 @MainActor
 final class AppleMusicPlaybackControllerRestoreTests: XCTestCase {
-    func testRestoreLastPlayedAlbumWhenSystemMatches() async {
-        let stored = LastPlayedAlbumState(
+    func testRestorePlaybackResumeStateWhenSystemMatches() async {
+        let stored = PlaybackResumeState(
             mediaKey: "persisted-album-123",
+            mediaType: "album",
             appleMusicId: "123",
             title: "Future Days",
             artist: "Can",
             artworkURL: nil,
-            savedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            intentUsePreview: false,
+            currentTrackAppleMusicId: "track-1",
+            currentTrackTitle: "Future Days",
+            currentTrackArtist: "Can",
+            currentTrackAlbumTitle: "Future Days",
+            playbackTime: 42,
+            savedAt: Date()
         )
-        let store = TestLastPlayedAlbumStore(state: stored)
+        let store = TestPlaybackResumeStore(state: stored)
         let snapshot = AppleMusicPlaybackController.SystemPlaybackSnapshot(
             playbackStatus: .playing,
             playbackTime: 42,
             albumTitle: stored.title,
             artistName: stored.artist,
+            currentTrackAppleMusicId: "track-1",
+            currentTrackTitle: "Future Days",
+            currentTrackArtist: "Can",
+            currentTrackAlbumTitle: "Future Days",
             currentEntry: nil
         )
         let controller = AppleMusicPlaybackController(
             playbackEnabled: false,
-            lastPlayedAlbumStore: store,
+            resumeStore: store,
             systemSnapshotProvider: { snapshot }
         )
         controller.updateAuthorizationStatus(.authorized)
 
-        await controller.restoreLastPlayedAlbumIfRelevant()
+        await controller.restorePlaybackResumeStateIfNeeded()
 
         XCTAssertEqual(controller.queueState.nowPlaying?.media.appleMusicId, stored.appleMusicId)
         XCTAssertEqual(controller.queueState.nowPlaying?.media.title, stored.title)
@@ -37,52 +48,63 @@ final class AppleMusicPlaybackControllerRestoreTests: XCTestCase {
         XCTAssertFalse(store.didClear)
     }
 
-    func testRestoreLastPlayedAlbumClearsStateWhenSystemChanged() async {
-        let stored = LastPlayedAlbumState(
+    func testRestorePlaybackResumeStateKeepsEntryWhenSystemChanged() async {
+        let stored = PlaybackResumeState(
             mediaKey: "persisted-album-456",
+            mediaType: "album",
             appleMusicId: "456",
             title: "Low",
             artist: "David Bowie",
             artworkURL: nil,
-            savedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            intentUsePreview: false,
+            currentTrackAppleMusicId: "track-2",
+            currentTrackTitle: "Speed of Life",
+            currentTrackArtist: "David Bowie",
+            currentTrackAlbumTitle: "Low",
+            playbackTime: 11,
+            savedAt: Date()
         )
-        let store = TestLastPlayedAlbumStore(state: stored)
+        let store = TestPlaybackResumeStore(state: stored)
         let snapshot = AppleMusicPlaybackController.SystemPlaybackSnapshot(
             playbackStatus: .paused,
             playbackTime: 0,
             albumTitle: "Another Green World",
             artistName: "Brian Eno",
+            currentTrackAppleMusicId: "track-other",
+            currentTrackTitle: "Sky Saw",
+            currentTrackArtist: "Brian Eno",
+            currentTrackAlbumTitle: "Another Green World",
             currentEntry: nil
         )
         let controller = AppleMusicPlaybackController(
             playbackEnabled: false,
-            lastPlayedAlbumStore: store,
+            resumeStore: store,
             systemSnapshotProvider: { snapshot }
         )
         controller.updateAuthorizationStatus(.authorized)
 
-        await controller.restoreLastPlayedAlbumIfRelevant()
+        await controller.restorePlaybackResumeStateIfNeeded()
 
-        XCTAssertNil(controller.queueState.nowPlaying)
-        XCTAssertNil(controller.nowPlayingMetadata)
+        XCTAssertEqual(controller.queueState.nowPlaying?.media.appleMusicId, stored.appleMusicId)
+        XCTAssertEqual(controller.nowPlayingMetadata?.title, stored.title)
         XCTAssertEqual(controller.playbackState, .stopped)
-        XCTAssertTrue(store.didClear)
+        XCTAssertFalse(store.didClear)
     }
 }
 
-private final class TestLastPlayedAlbumStore: LastPlayedAlbumStoring {
+private final class TestPlaybackResumeStore: PlaybackResumeStoring {
     private(set) var didClear = false
-    private var state: LastPlayedAlbumState?
+    private var state: PlaybackResumeState?
 
-    init(state: LastPlayedAlbumState? = nil) {
+    init(state: PlaybackResumeState? = nil) {
         self.state = state
     }
 
-    func load() -> LastPlayedAlbumState? {
+    func load() -> PlaybackResumeState? {
         state
     }
 
-    func save(_ state: LastPlayedAlbumState) {
+    func save(_ state: PlaybackResumeState) {
         self.state = state
     }
 

@@ -1,19 +1,26 @@
 @testable import MusicStoryRenderer
 import XCTest
 
-final class LastPlayedAlbumStoreTests: XCTestCase {
-    private let suiteName = "LastPlayedAlbumStoreTests"
+final class PlaybackResumeStoreTests: XCTestCase {
+    private let suiteName = "PlaybackResumeStoreTests"
 
-    func testSaveAndLoadLastPlayedAlbum() {
+    func testSaveAndLoadPlaybackResumeState() {
         let defaults = makeDefaults()
-        let store = UserDefaultsLastPlayedAlbumStore(defaults: defaults, key: "last-played-album-test")
-        let state = LastPlayedAlbumState(
+        let store = UserDefaultsPlaybackResumeStore(defaults: defaults, key: "playback-resume-test")
+        let state = PlaybackResumeState(
             mediaKey: "persisted-album-123",
+            mediaType: "album",
             appleMusicId: "123",
             title: "Across The Universe",
             artist: "The Beatles",
             artworkURL: URL(string: "https://example.com/artwork.jpg"),
-            savedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            intentUsePreview: false,
+            currentTrackAppleMusicId: "track-1",
+            currentTrackTitle: "Across The Universe",
+            currentTrackArtist: "The Beatles",
+            currentTrackAlbumTitle: "Let It Be",
+            playbackTime: 87,
+            savedAt: Date()
         )
 
         store.save(state)
@@ -22,16 +29,23 @@ final class LastPlayedAlbumStoreTests: XCTestCase {
         XCTAssertEqual(loaded, state)
     }
 
-    func testClearRemovesLastPlayedAlbum() {
+    func testClearRemovesPlaybackResumeState() {
         let defaults = makeDefaults()
-        let store = UserDefaultsLastPlayedAlbumStore(defaults: defaults, key: "last-played-album-test")
-        let state = LastPlayedAlbumState(
+        let store = UserDefaultsPlaybackResumeStore(defaults: defaults, key: "playback-resume-test")
+        let state = PlaybackResumeState(
             mediaKey: "persisted-album-456",
+            mediaType: "album",
             appleMusicId: "456",
             title: "Selected Ambient Works 85-92",
             artist: "Aphex Twin",
             artworkURL: nil,
-            savedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            intentUsePreview: false,
+            currentTrackAppleMusicId: nil,
+            currentTrackTitle: nil,
+            currentTrackArtist: nil,
+            currentTrackAlbumTitle: nil,
+            playbackTime: nil,
+            savedAt: Date()
         )
 
         store.save(state)

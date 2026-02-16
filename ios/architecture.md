@@ -25,6 +25,7 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 ### Playback
 - `AppleMusicPlaybackController` integrates MusicKit authorization, queue state, playback state, and now-playing metadata.
 - The controller wraps `SystemMusicPlayer` and maps its state into UI-friendly models (`PlaybackState`, `PlaybackNowPlayingMetadata`).
+- Resume persistence stores the selected media, last known track, and playback time in `PlaybackResumeStore` so restarts can recover either live system playback or a ready-to-resume queue entry.
 - Playback UI is shared at the app root:
   - `PlaybackBarView` shows the mini player + authorization CTA.
   - `NowPlayingSheetView` shows expanded playback controls and metadata.

@@ -23,7 +23,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     private let applicationPlayer: ApplicationMusicPlayer
     private let systemPlayer: SystemMusicPlayer
     private let playbackEnabled: Bool
-    private let lastPlayedAlbumStore: LastPlayedAlbumStoring
+    private let resumeStore: PlaybackResumeStoring
     private let systemSnapshotProvider: () -> SystemPlaybackSnapshot
     private let scrobbleHandler: PlaybackScrobbleHandling?
     private let diagnosticLogger: DiagnosticLogging?
@@ -34,7 +34,10 @@ final class AppleMusicPlaybackController: ObservableObject {
     private var activePlayer: PlaybackActivePlayer = .application
     private var playbackTickTask: Task<Void, Never>?
     private let playbackTickInterval: TimeInterval = 2
+    private let resumePersistInterval: TimeInterval = 5
     private var isInForeground = true
+    private var lastResumePersistedAt: Date?
+    private var restoredResumeState: PlaybackResumeState?
     private var playlistCreationStoryID: String?
     private var playlistCreationTask: Task<Void, Never>?
     private var albumProgressContext: AlbumPlaybackContext?
@@ -44,7 +47,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         playbackEnabled: Bool = true,
         applicationPlayer: ApplicationMusicPlayer = .shared,
         systemPlayer: SystemMusicPlayer = .shared,
-        lastPlayedAlbumStore: LastPlayedAlbumStoring = UserDefaultsLastPlayedAlbumStore(),
+        resumeStore: PlaybackResumeStoring = UserDefaultsPlaybackResumeStore(),
         scrobbleHandler: PlaybackScrobbleHandling? = nil,
         diagnosticLogger: DiagnosticLogging? = nil,
         systemSnapshotProvider: (() -> SystemPlaybackSnapshot)? = nil
@@ -52,17 +55,22 @@ final class AppleMusicPlaybackController: ObservableObject {
         self.playbackEnabled = playbackEnabled
         self.applicationPlayer = applicationPlayer
         self.systemPlayer = systemPlayer
-        self.lastPlayedAlbumStore = lastPlayedAlbumStore
+        self.resumeStore = resumeStore
         self.scrobbleHandler = scrobbleHandler
         self.diagnosticLogger = diagnosticLogger
         self.systemSnapshotProvider = systemSnapshotProvider ?? {
             let currentEntry = systemPlayer.queue.currentEntry
             let (albumTitle, artistName) = AppleMusicPlaybackController.albumTitleAndArtist(from: currentEntry)
+            let currentTrack = AppleMusicPlaybackController.trackDetails(from: currentEntry)
             return SystemPlaybackSnapshot(
                 playbackStatus: systemPlayer.state.playbackStatus,
                 playbackTime: systemPlayer.playbackTime,
                 albumTitle: albumTitle,
                 artistName: artistName,
+                currentTrackAppleMusicId: currentTrack.identifier,
+                currentTrackTitle: currentTrack.title,
+                currentTrackArtist: currentTrack.artist,
+                currentTrackAlbumTitle: currentTrack.albumTitle,
                 currentEntry: currentEntry
             )
         }
@@ -70,7 +78,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         if playbackEnabled {
             startObservingPlayerState()
             Task { @MainActor in
-                await restoreLastPlayedAlbumIfRelevant()
+                await restorePlaybackResumeStateIfNeeded()
             }
         }
     }
@@ -115,6 +123,7 @@ final class AppleMusicPlaybackController: ObservableObject {
         state.play(media: media, intent: resolvedIntent)
         queueState = state
         pendingAction = .play(PlaybackQueueEntry(media: media, intent: resolvedIntent))
+        restoredResumeState = nil
         lastErrorMessage = nil
         nowPlayingMetadata = PlaybackNowPlayingMetadata(media: media)
         logEvent("play_requested", metadata: mediaMetadata(for: media, intent: resolvedIntent))
@@ -163,6 +172,10 @@ final class AppleMusicPlaybackController: ObservableObject {
         case .paused, .stopped:
             if playbackEnabled {
                 Task { @MainActor in
+                    if currentPlayerQueue().currentEntry == nil, let entry = queueState.nowPlaying {
+                        await startPlaybackFromQueue(entry, resume: restoredResumeState)
+                        return
+                    }
                     await resumePlayback()
                 }
             }
@@ -263,7 +276,7 @@ final class AppleMusicPlaybackController: ObservableObject {
             let queues = try await makePlaybackTarget(for: media, intent: intent)
             try await startMusicKitPlayback(with: queues)
             setPlaybackState(.playing)
-            persistLastPlayedAlbumIfNeeded(for: media)
+            persistResumeState(force: true)
             logEvent("playback_started", metadata: mediaMetadata(for: media, intent: intent))
         } catch {
             setPlaybackState(.stopped)
@@ -314,73 +327,88 @@ final class AppleMusicPlaybackController: ObservableObject {
             systemPlayer.pause()
         }
         setPlaybackState(.paused)
+        persistResumeState(force: true)
         logEvent("playback_paused", metadata: playbackMetadata())
     }
 
-    private func persistLastPlayedAlbumIfNeeded(for media: StoryMediaReference) {
-        guard media.type == .album,
-              let appleMusicId = sanitizedAppleMusicID(media.appleMusicId)
-        else {
-            return
-        }
-        let mediaKey = persistedAlbumKey(for: appleMusicId)
-        let state = LastPlayedAlbumState(
-            mediaKey: mediaKey,
-            appleMusicId: appleMusicId,
-            title: media.title,
-            artist: media.artist,
-            artworkURL: media.artworkURL,
-            savedAt: Date()
-        )
-        lastPlayedAlbumStore.save(state)
-    }
-
-    func restoreLastPlayedAlbumIfRelevant() async {
+    func restorePlaybackResumeStateIfNeeded() async {
         guard queueState.nowPlaying == nil else {
             return
         }
-        guard authorizationStatus.allowsPlayback else {
+        guard let stored = resumeStore.load() else {
             return
         }
-        guard let stored = lastPlayedAlbumStore.load() else {
+
+        // Ignore very old entries to avoid pinning the playback bar indefinitely.
+        let maxAge: TimeInterval = 60 * 60 * 24 * 30
+        if Date().timeIntervalSince(stored.savedAt) > maxAge {
+            resumeStore.clear()
             return
         }
+
         let snapshot = systemSnapshotProvider()
-        guard systemNowPlayingMatchesStoredAlbum(stored, snapshot: snapshot) else {
-            lastPlayedAlbumStore.clear()
+        let matchesSystem = systemNowPlayingMatchesStored(stored, snapshot: snapshot)
+
+        if matchesSystem {
+            if let media = makePersistedMediaReference(from: stored) {
+                queueState = PlaybackQueueState(nowPlaying: PlaybackQueueEntry(media: media, intent: stored.intentUsePreview ? .preview : .full))
+                nowPlayingMetadata = PlaybackNowPlayingMetadata(media: media)
+            }
+            updateActivePlayer(.system)
+            restoredResumeState = nil
+            syncWithSystemPlayerState(using: snapshot)
+            await restoreAlbumProgressContextIfNeeded(for: stored, snapshot: snapshot)
             return
         }
-        let media = makePersistedAlbumReference(from: stored)
-        queueState = PlaybackQueueState(nowPlaying: PlaybackQueueEntry(media: media, intent: .full))
-        nowPlayingMetadata = PlaybackNowPlayingMetadata(media: media)
-        updateActivePlayer(.system)
-        syncWithSystemPlayerState(using: snapshot)
-        await restoreAlbumProgressContextIfNeeded(for: stored, snapshot: snapshot)
+
+        // If we can't confidently match the system player, keep the persisted state and present
+        // it as a "ready to resume" entry instead of clearing it.
+        if let media = makePersistedMediaReference(from: stored) {
+            queueState = PlaybackQueueState(nowPlaying: PlaybackQueueEntry(media: media, intent: stored.intentUsePreview ? .preview : .full))
+            nowPlayingMetadata = PlaybackNowPlayingMetadata(media: media)
+            setPlaybackState(.stopped)
+            restoredResumeState = stored
+        }
     }
 
-    private func systemNowPlayingMatchesStoredAlbum(
-        _ stored: LastPlayedAlbumState,
+    private func systemNowPlayingMatchesStored(
+        _ stored: PlaybackResumeState,
         snapshot: SystemPlaybackSnapshot
     ) -> Bool {
+        if let storedTrackID = sanitizedAppleMusicID(stored.currentTrackAppleMusicId ?? ""),
+           let systemTrackID = sanitizedAppleMusicID(snapshot.currentTrackAppleMusicId ?? ""),
+           storedTrackID == systemTrackID {
+            return true
+        }
+
+        // Fallback: compare album title + artist with some tolerance.
         guard let albumTitle = snapshot.albumTitle,
               let artistName = snapshot.artistName
         else {
             return false
         }
-        return matchesStoredAlbum(title: albumTitle, artist: artistName, stored: stored)
+        return normalizedCompare(albumTitle, stored.title) && normalizedCompare(artistName, stored.artist)
     }
 
-    private func matchesStoredAlbum(title: String?, artist: String?, stored: LastPlayedAlbumState) -> Bool {
-        guard let title, let artist else {
-            return false
+    private func normalizedCompare(_ lhs: String, _ rhs: String) -> Bool {
+        let norm: (String) -> String = { value in
+            value
+                .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
+                .replacingOccurrences(of: "&", with: "and")
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { $0.isEmpty == false }
+                .joined(separator: " ")
         }
-        return title == stored.title && artist == stored.artist
+        return norm(lhs) == norm(rhs)
     }
 
-    private func makePersistedAlbumReference(from stored: LastPlayedAlbumState) -> StoryMediaReference {
-        StoryMediaReference(
+    private func makePersistedMediaReference(from stored: PlaybackResumeState) -> StoryMediaReference? {
+        guard let type = StoryMediaType(storageValue: stored.mediaType) else {
+            return nil
+        }
+        return StoryMediaReference(
             key: stored.mediaKey,
-            type: .album,
+            type: type,
             appleMusicId: stored.appleMusicId,
             title: stored.title,
             artist: stored.artist,
@@ -409,6 +437,7 @@ final class AppleMusicPlaybackController: ObservableObject {
     func handleAppBackground() {
         isInForeground = false
         stopPlaybackTick()
+        persistResumeState(force: true)
         let queue = currentPlayerQueue()
         emitPlaybackSnapshot(reason: .background, currentEntry: queue.currentEntry)
     }
@@ -422,10 +451,11 @@ final class AppleMusicPlaybackController: ObservableObject {
     }
 
     private func restoreAlbumProgressContextIfNeeded(
-        for stored: LastPlayedAlbumState,
+        for stored: PlaybackResumeState,
         snapshot: SystemPlaybackSnapshot
     ) async {
-        guard albumProgressContext == nil,
+        guard stored.mediaType == StoryMediaType.album.storageValue,
+              albumProgressContext == nil,
               let rawIdentifier = sanitizedAppleMusicID(stored.appleMusicId)
         else {
             return
@@ -456,6 +486,42 @@ final class AppleMusicPlaybackController: ObservableObject {
                 return (video.albumTitle, video.artistName)
             @unknown default:
                 return (nil, nil)
+            }
+        }
+    }
+
+    private struct TrackDetailsSnapshot {
+        let identifier: String?
+        let title: String?
+        let artist: String?
+        let albumTitle: String?
+    }
+
+    private static func trackDetails(from entry: MusicKit.MusicPlayer.Queue.Entry?) -> TrackDetailsSnapshot {
+        guard let entry else {
+            return TrackDetailsSnapshot(identifier: nil, title: nil, artist: nil, albumTitle: nil)
+        }
+        switch entry.item {
+        case .none:
+            return TrackDetailsSnapshot(identifier: nil, title: nil, artist: nil, albumTitle: nil)
+        case let .some(item):
+            switch item {
+            case let .song(song):
+                return TrackDetailsSnapshot(
+                    identifier: song.id.rawValue,
+                    title: song.title,
+                    artist: song.artistName,
+                    albumTitle: song.albumTitle
+                )
+            case let .musicVideo(video):
+                return TrackDetailsSnapshot(
+                    identifier: video.id.rawValue,
+                    title: video.title,
+                    artist: video.artistName,
+                    albumTitle: video.albumTitle
+                )
+            @unknown default:
+                return TrackDetailsSnapshot(identifier: nil, title: nil, artist: nil, albumTitle: nil)
             }
         }
     }
@@ -677,7 +743,44 @@ final class AppleMusicPlaybackController: ObservableObject {
     private func handlePlaybackTick() {
         let queue = currentPlayerQueue()
         updateAlbumProgress(playbackTime: currentPlaybackTime(), currentEntry: queue.currentEntry)
+        persistResumeState(force: false)
         emitPlaybackSnapshot(reason: .tick, currentEntry: queue.currentEntry)
+    }
+
+    private func persistResumeState(force: Bool) {
+        guard let entry = queueState.nowPlaying else {
+            return
+        }
+        if entry.media.type == .musicVideo {
+            return
+        }
+        let now = Date()
+        if force == false,
+           let last = lastResumePersistedAt,
+           now.timeIntervalSince(last) < resumePersistInterval {
+            return
+        }
+        let queue = currentPlayerQueue()
+        let currentEntry = queue.currentEntry
+        let track = Self.trackDetails(from: currentEntry)
+        let time = currentPlaybackTime()
+        let state = PlaybackResumeState(
+            mediaKey: entry.media.key,
+            mediaType: entry.media.type.storageValue,
+            appleMusicId: entry.media.appleMusicId,
+            title: entry.media.title,
+            artist: entry.media.artist,
+            artworkURL: entry.media.artworkURL,
+            intentUsePreview: entry.intent.usePreview,
+            currentTrackAppleMusicId: track.identifier,
+            currentTrackTitle: track.title,
+            currentTrackArtist: track.artist,
+            currentTrackAlbumTitle: track.albumTitle,
+            playbackTime: max(0, time),
+            savedAt: now
+        )
+        resumeStore.save(state)
+        lastResumePersistedAt = now
     }
 
     private func updateAlbumProgressContext(from album: Album) {
@@ -780,6 +883,105 @@ final class AppleMusicPlaybackController: ObservableObject {
         }
     }
 
+    private func startPlaybackFromQueue(_ entry: PlaybackQueueEntry, resume: PlaybackResumeState?) async {
+        setPlaybackState(.loading)
+        do {
+            let resolved = try await makePlaybackTargetForResume(entry: entry, resume: resume)
+            try await startMusicKitPlayback(with: resolved.queues, startTime: resolved.startTime)
+            setPlaybackState(.playing)
+            restoredResumeState = nil
+            persistResumeState(force: true)
+            logEvent("playback_resumed_from_persisted_state", metadata: mediaMetadata(for: entry.media, intent: entry.intent))
+        } catch {
+            setPlaybackState(.stopped)
+            lastErrorMessage = error.localizedDescription
+            logEvent(
+                "playback_failed",
+                message: error.localizedDescription,
+                metadata: mediaMetadata(for: entry.media, intent: entry.intent)
+            )
+        }
+    }
+
+    private func makePlaybackTargetForResume(
+        entry: PlaybackQueueEntry,
+        resume: PlaybackResumeState?
+    ) async throws -> (queues: MusicKitQueues, startTime: TimeInterval?) {
+        guard let resume,
+              resume.mediaType == entry.media.type.storageValue,
+              sanitizedAppleMusicID(resume.appleMusicId) == sanitizedAppleMusicID(entry.media.appleMusicId)
+        else {
+            return (try await makePlaybackTarget(for: entry.media, intent: entry.intent), nil)
+        }
+
+        let startTime = resume.playbackTime.map { max(0, $0) }
+
+        switch entry.media.type {
+        case .album:
+            guard let rawAlbumID = sanitizedAppleMusicID(entry.media.appleMusicId),
+                  let rawTrackID = sanitizedAppleMusicID(resume.currentTrackAppleMusicId ?? "")
+            else {
+                return (try await makePlaybackTarget(for: entry.media, intent: entry.intent), nil)
+            }
+            let albumID = MusicItemID(rawAlbumID)
+            let trackID = MusicItemID(rawTrackID)
+            let albumQueues = try await makeAlbumResumeQueues(albumID: albumID, startingAt: trackID)
+            return (albumQueues.queues, albumQueues.didStartAtTrack ? startTime : nil)
+        case .track:
+            return (try await makePlaybackTarget(for: entry.media, intent: entry.intent), startTime)
+        case .playlist, .musicVideo:
+            return (try await makePlaybackTarget(for: entry.media, intent: entry.intent), nil)
+        }
+    }
+
+    private func makeAlbumResumeQueues(
+        albumID: MusicItemID,
+        startingAt trackID: MusicItemID
+    ) async throws -> (queues: MusicKitQueues, didStartAtTrack: Bool) {
+        let album = try await fetchAlbum(matching: albumID)
+        guard let tracks = album.tracks, tracks.isEmpty == false else {
+            return (
+                queues: MusicKitQueues(
+                    applicationQueue: ApplicationMusicPlayer.Queue(for: [album]),
+                    systemQueue: MusicKit.MusicPlayer.Queue(for: [album])
+                ),
+                didStartAtTrack: false
+            )
+        }
+
+        let songs: [Song] = tracks.compactMap { track in
+            switch track {
+            case let .song(song):
+                return song
+            case .musicVideo:
+                return nil
+            @unknown default:
+                return nil
+            }
+        }
+
+        guard songs.isEmpty == false,
+              let index = songs.firstIndex(where: { $0.id == trackID })
+        else {
+            return (
+                queues: MusicKitQueues(
+                    applicationQueue: ApplicationMusicPlayer.Queue(for: [album]),
+                    systemQueue: MusicKit.MusicPlayer.Queue(for: [album])
+                ),
+                didStartAtTrack: false
+            )
+        }
+
+        let remaining = Array(songs[index...])
+        return (
+            queues: MusicKitQueues(
+                applicationQueue: ApplicationMusicPlayer.Queue(for: remaining),
+                systemQueue: MusicKit.MusicPlayer.Queue(for: remaining)
+            ),
+            didStartAtTrack: true
+        )
+    }
+
     private func currentEntryItemID(_ entry: MusicKit.MusicPlayer.Queue.Entry) -> MusicItemID? {
         switch entry.item {
         case .none:
@@ -878,27 +1080,33 @@ final class AppleMusicPlaybackController: ObservableObject {
         }
     }
 
-    private func startMusicKitPlayback(with queues: MusicKitQueues) async throws {
+    private func startMusicKitPlayback(with queues: MusicKitQueues, startTime: TimeInterval? = nil) async throws {
         do {
             guard let applicationQueue = queues.applicationQueue else {
                 throw PlaybackError.missingApplicationQueue
             }
-            try await startApplicationPlayback(with: applicationQueue)
+            try await startApplicationPlayback(with: applicationQueue, startTime: startTime)
         } catch {
-            try await startSystemPlayback(with: queues.systemQueue)
+            try await startSystemPlayback(with: queues.systemQueue, startTime: startTime)
         }
     }
 
-    private func startApplicationPlayback(with queue: ApplicationMusicPlayer.Queue) async throws {
+    private func startApplicationPlayback(with queue: ApplicationMusicPlayer.Queue, startTime: TimeInterval?) async throws {
         updateActivePlayer(.application)
         applicationPlayer.queue = queue
         try await applicationPlayer.play()
+        if let startTime {
+            applicationPlayer.playbackTime = max(0, startTime)
+        }
     }
 
-    private func startSystemPlayback(with queue: MusicKit.MusicPlayer.Queue) async throws {
+    private func startSystemPlayback(with queue: MusicKit.MusicPlayer.Queue, startTime: TimeInterval?) async throws {
         updateActivePlayer(.system)
         systemPlayer.queue = queue
         try await systemPlayer.play()
+        if let startTime {
+            systemPlayer.playbackTime = max(0, startTime)
+        }
     }
 
     func openInMusic(for media: StoryMediaReference? = nil) {
@@ -1023,6 +1231,10 @@ final class AppleMusicPlaybackController: ObservableObject {
         let playbackTime: TimeInterval
         let albumTitle: String?
         let artistName: String?
+        let currentTrackAppleMusicId: String?
+        let currentTrackTitle: String?
+        let currentTrackArtist: String?
+        let currentTrackAlbumTitle: String?
         let currentEntry: MusicKit.MusicPlayer.Queue.Entry?
     }
 
@@ -1111,10 +1323,6 @@ final class AppleMusicPlaybackController: ObservableObject {
             metadata["failed"] = String(failed)
         }
         return metadata
-    }
-
-    private func persistedAlbumKey(for appleMusicId: String) -> String {
-        "persisted-album-\(appleMusicId)"
     }
 
     private func createStoryPlaylist(for document: StoryDocument) async {
