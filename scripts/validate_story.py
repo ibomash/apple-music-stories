@@ -75,6 +75,10 @@ SCHEMA = {
                     "title": {"type": "string", "minLength": 1},
                     "artist": {"type": "string", "minLength": 1},
                     "artwork_url": {"type": "string"},
+                    "release_date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}(-\\d{2})?(-\\d{2})?$",
+                    },
                     "duration_ms": {"type": "number", "minimum": 1},
                 },
                 "additionalProperties": True,

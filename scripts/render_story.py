@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import html
 import http.server
 import importlib.util
@@ -396,6 +397,89 @@ body {
   text-decoration: none;
   font-weight: 600;
 }
+.media-release-date {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.62);
+}
+.all-releases {
+  margin-bottom: 56px;
+  padding: 30px 28px;
+  border-radius: 24px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: linear-gradient(170deg, #f8f4ee 0%, #fbf8f4 100%);
+}
+.all-releases-header {
+  margin-bottom: 18px;
+}
+.all-releases-kicker {
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-family: var(--font-display);
+  margin-bottom: 10px;
+}
+.all-releases-title {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-family: var(--font-display);
+}
+.all-releases-deck {
+  margin-top: 8px;
+  max-width: 700px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.all-releases-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0 24px;
+}
+.release-filter {
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+.release-filter[aria-pressed="true"] {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+.all-releases-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.all-releases-grid .media-card {
+  margin: 0;
+  height: 100%;
+  align-items: start;
+  grid-template-columns: 88px 1fr;
+  gap: 14px;
+  padding: 16px;
+}
+.all-releases-grid .media-card img {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+}
+.all-releases-grid .media-title {
+  font-size: 1rem;
+}
+.all-releases-grid .media-controls {
+  margin-top: 10px;
+}
 .media-controls {
   margin-top: 12px;
   display: flex;
@@ -551,6 +635,19 @@ body {
   .media-card img {
     margin: 0 auto;
   }
+  .all-releases {
+    padding: 24px 18px;
+  }
+  .all-releases-grid {
+    grid-template-columns: 1fr;
+  }
+  .all-releases-grid .media-card {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .all-releases-grid .media-card img {
+    margin: 0 auto;
+  }
   .auth-banner {
     flex-direction: column;
     text-align: center;
@@ -655,6 +752,7 @@ class StoryMedia:
     artist: str
     artwork_url: str | None
     apple_music_url: str | None
+    release_date: str | None
 
 
 @dataclass(frozen=True)
@@ -745,6 +843,7 @@ def build_media_lookup(raw_media: list[dict[str, Any]]) -> dict[str, StoryMedia]
         key = str(item.get("key", "")).strip()
         if not key:
             continue
+        release_raw = item.get("release_date")
         lookup[key] = StoryMedia(
             key=key,
             type=str(item.get("type", "")),
@@ -753,12 +852,17 @@ def build_media_lookup(raw_media: list[dict[str, Any]]) -> dict[str, StoryMedia]
             artist=str(item.get("artist", "")),
             artwork_url=item.get("artwork_url"),
             apple_music_url=item.get("apple_music_url"),
+            release_date=str(release_raw) if release_raw is not None else None,
         )
     return lookup
 
 
 def render_media_card(
-    ref: str, media: StoryMedia | None, asset_prefix: str | None = None
+    ref: str,
+    media: StoryMedia | None,
+    asset_prefix: str | None = None,
+    extra_class: str = "",
+    show_release_date: bool = False,
 ) -> str:
     if media is None:
         return (
@@ -789,20 +893,31 @@ def render_media_card(
         "</a>"
     ).format(link=html.escape(apple_link))
     controls.append(open_link)
+    date_html = ""
+    if show_release_date:
+        release_label = format_release_date_label(media.release_date)
+        date_html = (
+            f'<div class="media-release-date">{html.escape(release_label)}</div>'
+        )
+    card_classes = " ".join(
+        part for part in ("media-card", extra_class.strip()) if part
+    )
     return (
-        '<div class="media-card" data-media-key="{key}" data-media-type="{type}" '
+        '<div class="{card_classes}" data-media-key="{key}" data-media-type="{type}" '
         'data-apple-music-id="{id}">'
         "{artwork}"
         '<div class="media-meta">'
         "{badge}"
         '<div class="media-title">{title}</div>'
         '<div class="media-artist">{artist}</div>'
+        "{date}"
         '<div class="media-controls">'
         "{controls}"
         "</div>"
         "</div>"
         "</div>"
     ).format(
+        card_classes=html.escape(card_classes),
         key=html.escape(media.key),
         type=html.escape(media.type),
         id=html.escape(media.apple_music_id),
@@ -810,7 +925,114 @@ def render_media_card(
         badge=badge_html,
         title=html.escape(media.title),
         artist=html.escape(media.artist),
+        date=date_html,
         controls="".join(controls),
+    )
+
+
+def parse_release_date(value: str | None) -> datetime.date | None:
+    if value is None:
+        return None
+    candidate = str(value).strip()
+    if not candidate:
+        return None
+    parts = candidate.split("-")
+    try:
+        if len(parts) == 1 and len(parts[0]) == 4:
+            return datetime.date(int(parts[0]), 1, 1)
+        if len(parts) == 2 and len(parts[0]) == 4 and len(parts[1]) == 2:
+            return datetime.date(int(parts[0]), int(parts[1]), 1)
+        if len(parts) == 3 and all(len(part) == 2 for part in parts[1:]):
+            return datetime.date(int(parts[0]), int(parts[1]), int(parts[2]))
+    except ValueError:
+        return None
+    return None
+
+
+def format_release_date_label(value: str | None) -> str:
+    parsed = parse_release_date(value)
+    if parsed is None:
+        return "Release date unknown"
+    candidate = (value or "").strip()
+    if re.fullmatch(r"\d{4}$", candidate):
+        return f"Released {parsed.year}"
+    if re.fullmatch(r"\d{4}-\d{2}$", candidate):
+        return f"Released {parsed.strftime('%b %Y')}"
+    return f"Released {parsed.strftime('%b')} {parsed.day}, {parsed.year}"
+
+
+def is_release_grid_type(media_type: str) -> bool:
+    return media_type.lower().strip() in {
+        "album",
+        "track",
+        "music-video",
+        "video",
+        "playlist",
+    }
+
+
+def sort_media_for_release_grid(items: Iterable[StoryMedia]) -> list[StoryMedia]:
+    def sort_key(item: StoryMedia) -> tuple[int, datetime.date, str]:
+        parsed = parse_release_date(item.release_date)
+        if parsed is None:
+            return (1, datetime.date.max, item.title.lower())
+        return (0, parsed, item.title.lower())
+
+    return sorted(items, key=sort_key)
+
+
+def render_all_releases_view(
+    media_lookup: dict[str, StoryMedia], asset_prefix: str | None
+) -> str:
+    releases = sort_media_for_release_grid(
+        item for item in media_lookup.values() if is_release_grid_type(item.type)
+    )
+    if not releases:
+        return ""
+
+    cards = [
+        render_media_card(
+            media.key,
+            media,
+            asset_prefix=asset_prefix,
+            extra_class="release-grid-card",
+            show_release_date=True,
+        )
+        for media in releases
+    ]
+    filters = [
+        ("all", "All"),
+        ("album", "Albums"),
+        ("track", "Tracks"),
+        ("music-video", "Videos"),
+        ("playlist", "Playlists"),
+    ]
+    filter_buttons = "".join(
+        (
+            '<button class="release-filter" data-release-filter="{filter}" '
+            'aria-pressed="{pressed}">{label}</button>'
+        ).format(
+            filter=html.escape(filter_value),
+            pressed="true" if filter_value == "all" else "false",
+            label=html.escape(label),
+        )
+        for filter_value, label in filters
+    )
+    return (
+        '<section class="all-releases" aria-label="All releases">'
+        '<header class="all-releases-header">'
+        '<div class="all-releases-kicker">Story Atlas</div>'
+        '<h2 class="all-releases-title">All Releases</h2>'
+        '<p class="all-releases-deck">'
+        "Browse every album, track, video, and playlist in chronological order and "
+        "switch between formats in one click."
+        "</p>"
+        "</header>"
+        f'<div class="all-releases-filters">{filter_buttons}</div>'
+        '<div class="all-releases-grid" data-release-grid>'
+        f"{''.join(cards)}"
+        "</div>"
+        "</section>"
     )
 
 
@@ -1317,6 +1539,7 @@ def render_story_html(
                 body=content_html,
             )
         )
+    all_releases_html = render_all_releases_view(story.media, asset_prefix)
 
     hero_block = ""
     if hero_src:
@@ -1372,6 +1595,7 @@ def render_story_html(
             "title": item.title,
             "artist": item.artist,
             "artwork_url": item.artwork_url,
+            "release_date": item.release_date,
         }
         for item in story.media.values()
     ]
@@ -1441,6 +1665,8 @@ def render_story_html(
         "const nextButton = document.querySelector('[data-action=next]');",
         "const toggleButton = document.querySelector('[data-action=toggle]');",
         "const playButtons = Array.from(document.querySelectorAll('[data-action=play]'));",
+        "const releaseFilters = Array.from(document.querySelectorAll('[data-release-filter]'));",
+        "const releaseCards = Array.from(document.querySelectorAll('[data-release-grid] .media-card'));",
         "const typeMap = { track: 'song', album: 'album', playlist: 'playlist', 'music-video': 'musicVideo' };",
         "let currentIndex = -1;",
         "let musicInstance = null;",
@@ -1565,6 +1791,24 @@ def render_story_html(
         "    });",
         "  });",
         "};",
+        "const normalizeType = (value) => value === 'video' ? 'music-video' : value;",
+        "const updateReleaseFilter = (filter) => {",
+        "  const normalizedFilter = normalizeType(filter || 'all');",
+        "  releaseFilters.forEach((filterButton) => {",
+        "    const selected = normalizeType(filterButton.dataset.releaseFilter || 'all') === normalizedFilter;",
+        "    filterButton.setAttribute('aria-pressed', selected ? 'true' : 'false');",
+        "  });",
+        "  releaseCards.forEach((card) => {",
+        "    const cardType = normalizeType(card.dataset.mediaType || '');",
+        "    card.style.display = normalizedFilter === 'all' || cardType === normalizedFilter ? '' : 'none';",
+        "  });",
+        "};",
+        "releaseFilters.forEach((filterButton) => {",
+        "  filterButton.addEventListener('click', () => {",
+        "    updateReleaseFilter(filterButton.dataset.releaseFilter || 'all');",
+        "  });",
+        "});",
+        "updateReleaseFilter('all');",
         "if (banner && statusEl && button && tokenMeta && hasTokenMeta) {",
         "  const hasToken = hasTokenMeta.content === 'true';",
         "  const developerToken = tokenMeta.content;",
@@ -1684,6 +1928,7 @@ def render_story_html(
         f"{auth_banner}"
         "</header>"
         '<main class="container">'
+        f"{all_releases_html}"
         f"{''.join(sections_html)}"
         "</main>"
         f"{media_json_tag}"
