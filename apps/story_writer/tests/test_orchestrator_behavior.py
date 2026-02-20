@@ -23,17 +23,31 @@ class RetryAppleMusicClient:
         self.calls.append(query)
         if len(self.calls) == 1:
             return []
-        return [
-            AppleMusicResult(
-                key="album-1",
-                media_type="album",
-                apple_music_id="1746833068",
-                title="Purple Rain",
-                artist="Prince & The Revolution",
-                artwork_url=None,
-                url="https://music.apple.com/us/album/purple-rain/1746833068",
-            )
-        ]
+        return [_sample_album_result()]
+
+
+@dataclass
+class CaptureAppleMusicClient:
+    calls: list[str]
+
+    async def search_catalog(
+        self, query: str, limit: int = 5
+    ) -> list[AppleMusicResult]:
+        self.calls.append(query)
+        return [_sample_album_result()]
+
+
+@dataclass
+class FirstHitThenEmptyAppleMusicClient:
+    calls: list[str]
+
+    async def search_catalog(
+        self, query: str, limit: int = 5
+    ) -> list[AppleMusicResult]:
+        self.calls.append(query)
+        if len(self.calls) == 1:
+            return [_sample_album_result()]
+        return []
 
 
 class EmptyWikiClient:
@@ -75,6 +89,70 @@ class AlwaysWikipediaAgent:
 class FailingAgent:
     async def decide(self, state):  # noqa: ANN001
         raise RuntimeError("planner overloaded")
+
+
+class InstructionalPromptAgent:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def decide(self, state):  # noqa: ANN001
+        if self.calls == 0:
+            self.calls += 1
+            return ToolDecision(
+                action="search_apple_music",
+                query=state.request.prompt,
+                reason="use prompt directly",
+            )
+        return ToolDecision(action="finalize", reason="done")
+
+
+class FinalizeTooEarlyAgent:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def decide(self, state):  # noqa: ANN001
+        if self.calls == 0:
+            self.calls += 1
+            return ToolDecision(
+                action="search_apple_music",
+                query="rare underground pioneers",
+                reason="first attempt",
+            )
+        self.calls += 1
+        return ToolDecision(action="finalize", reason="no more needed")
+
+
+class FirstHitThenEmptyAgent:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def decide(self, state):  # noqa: ANN001
+        self.calls += 1
+        if self.calls == 1:
+            return ToolDecision(
+                action="search_apple_music",
+                query="Massive Attack",
+                reason="seed anchors",
+            )
+        if self.calls == 2:
+            return ToolDecision(
+                action="search_apple_music",
+                query="not-a-real-match-zxyq",
+                reason="probe alternate term",
+            )
+        return ToolDecision(action="finalize", reason="ready to write")
+
+
+def _sample_album_result() -> AppleMusicResult:
+    return AppleMusicResult(
+        key="album-1",
+        media_type="album",
+        apple_music_id="1746833068",
+        title="Purple Rain",
+        artist="Prince & The Revolution",
+        artwork_url=None,
+        url="https://music.apple.com/us/album/purple-rain/1746833068",
+    )
 
 
 def test_orchestrator_retries_with_simpler_apple_music_query(tmp_path: Path) -> None:
@@ -201,6 +279,93 @@ def test_orchestrator_falls_back_when_planner_fails(tmp_path: Path) -> None:
     events = store.list_events(created.run_id)
     assert events is not None
     assert any("using fallback strategy" in event.message for event in events)
+
+
+def test_orchestrator_normalizes_instructional_apple_music_queries(
+    tmp_path: Path,
+) -> None:
+    store = LocalRunStore(tmp_path / "writer")
+    config = AppConfig(mode="mock", storage_root=tmp_path / "writer")
+    request = CreateRunRequest(
+        prompt=(
+            "Write an overview of trip-hop past Portishead in two big sections "
+            "covering the era and what came later"
+        )
+    )
+    created = store.create_run(request)
+    apple_client = CaptureAppleMusicClient(calls=[])
+
+    orchestrator = StoryOrchestrator(
+        store=store,
+        config=config,
+        apple_music_client=apple_client,
+        wikipedia_client=EmptyWikiClient(),
+        writer=MockStoryWriter(),
+        tool_loop_agent=InstructionalPromptAgent(),
+    )
+
+    asyncio.run(orchestrator.run(created.run_id, request))
+
+    assert apple_client.calls
+    assert apple_client.calls[0] != request.prompt
+    assert len(apple_client.calls[0].split()) <= 6
+
+
+def test_orchestrator_retries_instead_of_finalizing_without_anchors(
+    tmp_path: Path,
+) -> None:
+    store = LocalRunStore(tmp_path / "writer")
+    config = AppConfig(mode="mock", storage_root=tmp_path / "writer")
+    request = CreateRunRequest(prompt="Trip-hop essentials beyond Portishead")
+    created = store.create_run(request)
+    apple_client = RetryAppleMusicClient(calls=[])
+
+    orchestrator = StoryOrchestrator(
+        store=store,
+        config=config,
+        apple_music_client=apple_client,
+        wikipedia_client=EmptyWikiClient(),
+        writer=MockStoryWriter(),
+        tool_loop_agent=FinalizeTooEarlyAgent(),
+    )
+
+    asyncio.run(orchestrator.run(created.run_id, request))
+
+    state = store.get_run(created.run_id)
+    assert state is not None
+    assert state.status == "completed"
+    assert len(apple_client.calls) >= 2
+
+    events = store.list_events(created.run_id)
+    assert events is not None
+    assert any(
+        "cannot finalize without Apple Music anchors" in event.message
+        for event in events
+    )
+
+
+def test_orchestrator_keeps_prior_apple_music_hits_when_later_query_is_empty(
+    tmp_path: Path,
+) -> None:
+    store = LocalRunStore(tmp_path / "writer")
+    config = AppConfig(mode="mock", storage_root=tmp_path / "writer")
+    request = CreateRunRequest(prompt="Trip-hop listening guide")
+    created = store.create_run(request)
+
+    orchestrator = StoryOrchestrator(
+        store=store,
+        config=config,
+        apple_music_client=FirstHitThenEmptyAppleMusicClient(calls=[]),
+        wikipedia_client=EmptyWikiClient(),
+        writer=MockStoryWriter(),
+        tool_loop_agent=FirstHitThenEmptyAgent(),
+    )
+
+    asyncio.run(orchestrator.run(created.run_id, request))
+
+    state = store.get_run(created.run_id)
+    assert state is not None
+    assert state.status == "completed"
 
 
 def test_wikipedia_client_sends_user_agent_header(monkeypatch) -> None:

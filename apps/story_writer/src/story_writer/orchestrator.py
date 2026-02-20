@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import asyncio
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -330,10 +331,16 @@ class StoryOrchestrator:
                 )
                 decision = await self.fallback_tool_loop_agent.decide(state)
             decision = self._normalize_decision(state, decision)
+            stats_suffix = (
+                "apple attempts="
+                f"{state.apple_music_query_attempts}, "
+                f"nonempty={state.apple_music_nonempty_calls}, "
+                f"unique_results={len(state.apple_music_results)}"
+            )
             self.store.append_event(
                 run_id,
                 "model_note",
-                f"tool-loop action: {decision.action} ({decision.reason})",
+                f"tool-loop action: {decision.action} ({decision.reason}); {stats_suffix}",
             )
 
             if decision.action == "finalize":
@@ -367,15 +374,37 @@ class StoryOrchestrator:
         decision: ToolDecision,
     ) -> ToolDecision:
         if decision.action == "search_apple_music":
-            return decision
+            query = _normalize_apple_music_query(
+                decision.query or state.request.prompt,
+                prompt=state.request.prompt,
+            )
+            return ToolDecision(
+                action="search_apple_music",
+                query=query,
+                reason=decision.reason,
+            )
 
         remaining_steps = self.config.tool_loop_max_steps - state.step
-        if not state.apple_music_results and remaining_steps <= 2:
-            fallback_query = _candidate_queries(state.request.prompt)[0]
+        if decision.action == "finalize" and not state.apple_music_results:
+            fallback_query = _next_unattempted_query(
+                state.request.prompt,
+                state.attempted_queries,
+            )
             return ToolDecision(
                 action="search_apple_music",
                 query=fallback_query,
-                reason="forced fallback to ensure Apple Music anchors before finalize",
+                reason="cannot finalize without Apple Music anchors; retrying search",
+            )
+
+        if not state.apple_music_results and remaining_steps <= 2:
+            fallback_query = _next_unattempted_query(
+                state.request.prompt,
+                state.attempted_queries,
+            )
+            return ToolDecision(
+                action="search_apple_music",
+                query=fallback_query,
+                reason="forcing Apple Music retry before loop ends",
             )
         return decision
 
@@ -386,15 +415,17 @@ class StoryOrchestrator:
         decision: ToolDecision,
         source_tracker: SourceTracker,
     ) -> None:
-        query = decision.query or state.request.prompt
-        if query in state.attempted_queries:
-            fallback = _candidate_queries(state.request.prompt)
-            for item in fallback:
-                if item not in state.attempted_queries:
-                    query = item
-                    break
+        query = _normalize_apple_music_query(
+            decision.query or state.request.prompt,
+            prompt=state.request.prompt,
+        )
+        if _query_was_attempted(query, state.attempted_queries):
+            query = _next_unattempted_query(
+                state.request.prompt, state.attempted_queries
+            )
 
         state.attempted_queries.append(query)
+        state.apple_music_query_attempts += 1
         self.store.append_event(
             run_id, "tool_call_started", f"Searching Apple Music: {query}"
         )
@@ -404,7 +435,14 @@ class StoryOrchestrator:
             "tool_call_completed",
             f"Apple Music returned {len(results)} result(s)",
         )
-        state.apple_music_results = results
+        state.apple_music_last_result_count = len(results)
+        state.apple_music_total_results_seen += len(results)
+        if results:
+            state.apple_music_nonempty_calls += 1
+        state.apple_music_results = _merge_apple_music_results(
+            state.apple_music_results,
+            results,
+        )
         for item in results:
             if item.url:
                 source_tracker.add(
@@ -578,35 +616,188 @@ def _slugify(value: str) -> str:
     return cleaned.strip("-")
 
 
+_GENRE_HINTS: tuple[tuple[str, str], ...] = (
+    ("trip-hop", "trip-hop"),
+    ("trip hop", "trip-hop"),
+    ("hip-hop", "hip-hop"),
+    ("hip hop", "hip-hop"),
+    ("drum and bass", "drum and bass"),
+    ("dnb", "drum and bass"),
+)
+
+_INSTRUCTION_TERMS: set[str] = {
+    "write",
+    "overview",
+    "explain",
+    "describe",
+    "summarize",
+    "section",
+    "sections",
+    "prompt",
+    "story",
+    "later",
+    "thereafter",
+    "everything",
+}
+
+_QUERY_STOPWORDS: set[str] = {
+    "about",
+    "after",
+    "again",
+    "already",
+    "also",
+    "and",
+    "are",
+    "came",
+    "for",
+    "from",
+    "have",
+    "into",
+    "just",
+    "much",
+    "past",
+    "than",
+    "that",
+    "the",
+    "their",
+    "them",
+    "there",
+    "these",
+    "this",
+    "those",
+    "well",
+    "what",
+    "with",
+}
+
+
 def _candidate_queries(prompt: str) -> list[str]:
+    stripped = " ".join(prompt.split())
+    if not stripped:
+        return ["music"]
+
     candidates: list[str] = []
-    stripped = prompt.strip()
-    if stripped:
-        candidates.append(stripped)
+    lowered = stripped.lower()
 
-    lower = stripped.lower()
-    if "prince" in lower:
-        candidates.append("Prince")
+    for needle, canonical in _GENRE_HINTS:
+        if needle in lowered:
+            candidates.append(canonical)
 
-    title_words = [token for token in stripped.split() if token[:1].isupper()]
-    if title_words:
-        candidates.append(" ".join(title_words[:3]))
+    phrases = re.findall(
+        r"\b[A-Z][A-Za-z0-9&']*(?:\s+[A-Z][A-Za-z0-9&']*){0,2}\b",
+        stripped,
+    )
+    for phrase in phrases:
+        cleaned_phrase = _clean_query_text(phrase)
+        if not cleaned_phrase:
+            continue
+        if _looks_instructional_query(cleaned_phrase):
+            continue
+        candidates.append(cleaned_phrase)
 
-    content_words = [
-        token for token in stripped.split() if token.isalpha() and len(token) > 4
+    keyword_tokens = [
+        token
+        for token in re.findall(r"[a-z0-9][a-z0-9'&-]*", lowered)
+        if token not in _QUERY_STOPWORDS and len(token) >= 3
     ]
-    if content_words:
-        candidates.append(" ".join(content_words[:4]))
+    if keyword_tokens:
+        candidates.append(" ".join(keyword_tokens[:3]))
+
+    if "prince" in lowered:
+        candidates.append("Prince")
 
     deduped: list[str] = []
     seen: set[str] = set()
     for candidate in candidates:
-        normalized = candidate.strip()
-        if not normalized:
+        normalized = _clean_query_text(candidate)
+        if not normalized or _looks_instructional_query(normalized):
             continue
-        key = normalized.lower()
+        words = normalized.split()
+        if len(words) > 6:
+            normalized = " ".join(words[:6])
+        key = _query_key(normalized)
         if key in seen:
             continue
         seen.add(key)
         deduped.append(normalized)
     return deduped or ["music"]
+
+
+def _normalize_apple_music_query(query: str, *, prompt: str) -> str:
+    normalized = _clean_query_text(query)
+    if not normalized or _looks_instructional_query(normalized):
+        return _candidate_queries(prompt)[0]
+
+    words = normalized.split()
+    if len(words) > 6:
+        normalized = " ".join(words[:6])
+    return normalized
+
+
+def _looks_instructional_query(query: str) -> bool:
+    lowered = query.lower()
+    words = re.findall(r"[a-z]+", lowered)
+    if len(words) >= 9:
+        return True
+    instruction_hits = sum(1 for word in words if word in _INSTRUCTION_TERMS)
+    if instruction_hits >= 2:
+        return True
+    return any(
+        phrase in lowered
+        for phrase in (
+            "in two sections",
+            "everything that",
+            "soon thereafter",
+            "past the",
+        )
+    )
+
+
+def _clean_query_text(value: str) -> str:
+    normalized = value.replace("\u2014", " ").replace("\u2013", " ")
+    normalized = " ".join(normalized.split())
+    return normalized.strip(" \t\r\n\"'`.,;:!?()[]{}")
+
+
+def _query_key(query: str) -> str:
+    return " ".join(query.strip().lower().split())
+
+
+def _query_was_attempted(query: str, attempted_queries: list[str]) -> bool:
+    query_key = _query_key(query)
+    for attempted in attempted_queries:
+        if attempted == "search_wikipedia":
+            continue
+        if _query_key(attempted) == query_key:
+            return True
+    return False
+
+
+def _next_unattempted_query(prompt: str, attempted_queries: list[str]) -> str:
+    candidates = _candidate_queries(prompt)
+    attempted_keys = {
+        _query_key(item) for item in attempted_queries if item != "search_wikipedia"
+    }
+    for candidate in candidates:
+        if _query_key(candidate) not in attempted_keys:
+            return candidate
+    return candidates[0]
+
+
+def _merge_apple_music_results(
+    existing: list[AppleMusicResult],
+    new_results: list[AppleMusicResult],
+) -> list[AppleMusicResult]:
+    merged = list(existing)
+    seen = {_apple_music_result_key(item) for item in existing}
+    for item in new_results:
+        key = _apple_music_result_key(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged
+
+
+def _apple_music_result_key(item: AppleMusicResult) -> tuple[str, str]:
+    return item.media_type, item.apple_music_id

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import time
+import zipfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -72,6 +74,16 @@ def test_create_run_and_fetch_artifact(tmp_path: Path) -> None:
     assert artifact["validation"]["schema_valid"] is True
     assert artifact["validation"]["parser_compatible"] is True
     assert "story_mdx" in artifact
+
+    package_response = client.get(f"/v0/runs/{run_id}/artifact/package")
+    assert package_response.status_code == 200
+    assert package_response.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(package_response.content), mode="r") as zf:
+        members = set(zf.namelist())
+        assert "story.mdx" in members
+        assert "artifact.json" in members
+        story_text = zf.read("story.mdx").decode("utf-8")
+        assert "<Section" in story_text
 
 
 def test_cancel_unknown_run_returns_404(tmp_path: Path) -> None:

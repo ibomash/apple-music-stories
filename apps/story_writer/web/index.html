@@ -96,6 +96,10 @@
         background: #ddd4c7;
         color: #2d2924;
       }
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
       pre {
         margin: 0;
         white-space: pre-wrap;
@@ -107,9 +111,109 @@
         color: var(--muted);
         margin-bottom: 10px;
       }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .panel-head .meta {
+        margin-bottom: 0;
+      }
+      .artifact-button {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+      }
+      .artifact-rich {
+        margin-top: 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        background: #fff;
+      }
+      .artifact-empty {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+      .story-view h2 {
+        margin: 0 0 10px;
+        font-size: 1.2rem;
+      }
+      .story-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #ebe3d7;
+      }
+      .story-section:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+      }
+      .story-section h2,
+      .story-section h3,
+      .story-section h4 {
+        margin: 0 0 8px;
+        line-height: 1.3;
+      }
+      .story-section h2 {
+        font-size: 1.02rem;
+      }
+      .story-section h3 {
+        font-size: 0.98rem;
+      }
+      .story-section h4 {
+        font-size: 0.93rem;
+      }
+      .story-section p {
+        margin: 0 0 10px;
+        line-height: 1.55;
+      }
+      .story-section ul,
+      .story-section ol {
+        margin: 0 0 10px;
+        padding-left: 20px;
+      }
+      .story-section li {
+        margin-bottom: 4px;
+        line-height: 1.45;
+      }
+      .story-section a {
+        color: var(--accent);
+      }
+      .media-pill {
+        display: inline-block;
+        margin: 4px 6px 4px 0;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid #cfc7bb;
+        background: #f8f4ed;
+        font-size: 0.78rem;
+        color: #3c3832;
+      }
+      .artifact-details {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+        padding: 8px 10px;
+      }
+      .artifact-details summary {
+        cursor: pointer;
+        color: #2f2b26;
+        font-weight: 600;
+      }
+      .artifact-details pre {
+        margin-top: 8px;
+        max-height: 260px;
+        overflow: auto;
+      }
       @media (max-width: 900px) {
         .grid {
           grid-template-columns: 1fr;
+        }
+        .panel-head {
+          align-items: flex-start;
+          flex-direction: column;
         }
       }
     </style>
@@ -153,8 +257,15 @@
           <pre id="events"></pre>
         </article>
         <article class="panel">
-          <div class="meta">Artifact</div>
-          <pre id="artifact"></pre>
+          <div class="panel-head">
+            <div class="meta">Artifact</div>
+            <button id="download-package" class="secondary artifact-button" disabled>Download MDX Package</button>
+          </div>
+          <div id="artifact-rich" class="artifact-rich artifact-empty">No artifact yet.</div>
+          <details id="artifact-details" class="artifact-details" hidden>
+            <summary>Show artifact details</summary>
+            <pre id="artifact-json"></pre>
+          </details>
         </article>
       </section>
     </main>
@@ -171,16 +282,260 @@
       const templateInput = document.getElementById("template");
       const toneInput = document.getElementById("tone");
       const eventsOutput = document.getElementById("events");
-      const artifactOutput = document.getElementById("artifact");
+      const artifactRichOutput = document.getElementById("artifact-rich");
+      const artifactDetails = document.getElementById("artifact-details");
+      const artifactJsonOutput = document.getElementById("artifact-json");
       const runMeta = document.getElementById("run-meta");
       const generateButton = document.getElementById("generate");
       const cancelButton = document.getElementById("cancel");
       const retryButton = document.getElementById("retry");
+      const downloadPackageButton = document.getElementById("download-package");
 
       function setButtons({ canGenerate, canCancel, canRetry }) {
         generateButton.disabled = !canGenerate;
         cancelButton.disabled = !canCancel;
         retryButton.disabled = !canRetry;
+      }
+
+      function setDownloadEnabled(enabled) {
+        downloadPackageButton.disabled = !enabled;
+      }
+
+      function resetArtifactView(message = "No artifact yet.") {
+        artifactRichOutput.classList.add("artifact-empty");
+        artifactRichOutput.textContent = message;
+        artifactJsonOutput.textContent = "";
+        artifactDetails.hidden = true;
+        artifactDetails.open = false;
+        setDownloadEnabled(false);
+      }
+
+      function splitStoryDocument(storyMdx) {
+        const source = typeof storyMdx === "string" ? storyMdx : "";
+        const match = source.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+        if (!match) {
+          return { frontMatter: "", body: source };
+        }
+        return { frontMatter: match[1], body: match[2] };
+      }
+
+      function frontMatterValue(frontMatter, key) {
+        const pattern = new RegExp(`^${key}:\\s*"?([^\\n"]+)"?$`, "m");
+        const match = frontMatter.match(pattern);
+        return match ? match[1].trim() : "";
+      }
+
+      function parseSections(body) {
+        const sections = [];
+        const sectionRegex = /<Section\s+([^>]*?)>([\s\S]*?)<\/Section>/g;
+        let match = sectionRegex.exec(body);
+        while (match) {
+          const attributes = match[1] || "";
+          const idMatch = attributes.match(/id="([^"]+)"/);
+          const titleMatch = attributes.match(/title="([^"]+)"/);
+          sections.push({
+            id: idMatch ? idMatch[1] : "",
+            title: titleMatch ? titleMatch[1] : "Section",
+            body: match[2] || "",
+          });
+          match = sectionRegex.exec(body);
+        }
+        return sections;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeAttribute(value) {
+        return escapeHtml(value).replace(/`/g, "&#96;");
+      }
+
+      function renderInlineMarkdown(text) {
+        let html = escapeHtml(text);
+        html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+        html = html.replace(
+          /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+          (_, label, url) =>
+            `<a href="${escapeAttribute(url)}" target="_blank" rel="noreferrer">${label}</a>`
+        );
+        return html;
+      }
+
+      function appendSectionContent(container, sectionBody) {
+        const lines = sectionBody.split("\n");
+        const paragraphLines = [];
+        const listItems = [];
+        let listType = null;
+
+        function flushParagraph() {
+          if (!paragraphLines.length) {
+            return;
+          }
+          const paragraph = document.createElement("p");
+          paragraph.innerHTML = renderInlineMarkdown(paragraphLines.join(" "));
+          container.appendChild(paragraph);
+          paragraphLines.length = 0;
+        }
+
+        function flushList() {
+          if (!listItems.length || !listType) {
+            return;
+          }
+          const list = document.createElement(listType);
+          for (const itemHtml of listItems) {
+            const item = document.createElement("li");
+            item.innerHTML = itemHtml;
+            list.appendChild(item);
+          }
+          container.appendChild(list);
+          listItems.length = 0;
+          listType = null;
+        }
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line) {
+            flushParagraph();
+            flushList();
+            continue;
+          }
+
+          const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+          if (headingMatch) {
+            flushParagraph();
+            flushList();
+            const level = Math.min(4, headingMatch[1].length + 1);
+            const heading = document.createElement(`h${level}`);
+            heading.innerHTML = renderInlineMarkdown(headingMatch[2].trim());
+            container.appendChild(heading);
+            continue;
+          }
+
+          const mediaMatch = line.match(/^<MediaRef\s+ref="([^"]+)"\s*\/>$/);
+          if (mediaMatch) {
+            flushParagraph();
+            flushList();
+            const pill = document.createElement("span");
+            pill.className = "media-pill";
+            pill.textContent = `MediaRef: ${mediaMatch[1]}`;
+            container.appendChild(pill);
+            continue;
+          }
+
+          const unorderedMatch = line.match(/^[-*]\s+(.+)$/);
+          const orderedMatch = line.match(/^\d+\.\s+(.+)$/);
+          if (unorderedMatch || orderedMatch) {
+            flushParagraph();
+            const nextListType = orderedMatch ? "ol" : "ul";
+            if (listType && listType !== nextListType) {
+              flushList();
+            }
+            listType = nextListType;
+            const content = orderedMatch ? orderedMatch[1] : unorderedMatch[1];
+            listItems.push(renderInlineMarkdown(content));
+            continue;
+          }
+
+          flushList();
+
+          paragraphLines.push(line);
+        }
+
+        flushParagraph();
+        flushList();
+      }
+
+      function renderStoryRichText(storyMdx) {
+        const root = document.createElement("div");
+        root.className = "story-view";
+
+        const parts = splitStoryDocument(storyMdx);
+        const title = frontMatterValue(parts.frontMatter, "title");
+        if (title) {
+          const heading = document.createElement("h2");
+          heading.textContent = title;
+          root.appendChild(heading);
+        }
+
+        const sections = parseSections(parts.body);
+        if (!sections.length) {
+          const fallback = document.createElement("p");
+          fallback.innerHTML = renderInlineMarkdown(parts.body.trim());
+          root.appendChild(fallback);
+          return root;
+        }
+
+        for (const section of sections) {
+          const sectionElement = document.createElement("section");
+          sectionElement.className = "story-section";
+          if (section.id) {
+            sectionElement.id = `story-section-${section.id}`;
+          }
+
+          const heading = document.createElement("h3");
+          heading.textContent = section.title;
+          sectionElement.appendChild(heading);
+
+          appendSectionContent(sectionElement, section.body);
+          root.appendChild(sectionElement);
+        }
+
+        return root;
+      }
+
+      function buildArtifactDetails(artifact) {
+        return {
+          run_id: artifact.run_id,
+          validation: artifact.validation,
+          provenance: artifact.provenance,
+        };
+      }
+
+      function renderArtifact(artifact) {
+        artifactRichOutput.classList.remove("artifact-empty");
+        artifactRichOutput.replaceChildren(renderStoryRichText(artifact.story_mdx));
+        artifactJsonOutput.textContent = JSON.stringify(buildArtifactDetails(artifact), null, 2);
+        artifactDetails.hidden = false;
+        artifactDetails.open = false;
+        setDownloadEnabled(Boolean(state.runId));
+      }
+
+      function downloadFileName(contentDisposition, fallbackName) {
+        const match = contentDisposition.match(/filename="([^"]+)"/i);
+        if (match) {
+          return match[1];
+        }
+        return fallbackName;
+      }
+
+      async function downloadPackage(runId) {
+        const response = await fetch(`/v0/runs/${runId}/artifact/package`);
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        const blob = await response.blob();
+        const fileName = downloadFileName(
+          response.headers.get("content-disposition") || "",
+          `${runId}-story-package.zip`
+        );
+
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(objectUrl);
       }
 
       async function createRun(payload) {
@@ -246,13 +601,16 @@
 
             if (run.status === "completed") {
               const artifact = await fetchArtifact(state.runId);
-              artifactOutput.textContent = JSON.stringify(artifact, null, 2);
+              renderArtifact(artifact);
+            } else {
+              setDownloadEnabled(false);
             }
           }
         } catch (error) {
           clearInterval(state.timer);
           state.timer = null;
           setButtons({ canGenerate: true, canCancel: false, canRetry: Boolean(state.lastPayload) });
+          setDownloadEnabled(false);
           eventsOutput.textContent += `[error] ${error.message}\n`;
         }
       }
@@ -270,7 +628,7 @@
         state.lastPayload = payload;
         state.lastEventIdx = 0;
         eventsOutput.textContent = "";
-        artifactOutput.textContent = "";
+        resetArtifactView("Generating artifact...");
 
         setButtons({ canGenerate: false, canCancel: false, canRetry: false });
         try {
@@ -282,6 +640,7 @@
         } catch (error) {
           setButtons({ canGenerate: true, canCancel: false, canRetry: Boolean(state.lastPayload) });
           eventsOutput.textContent += `[error] ${error.message}\n`;
+          resetArtifactView();
         }
       });
 
@@ -306,6 +665,25 @@
         generateButton.click();
       });
 
+      downloadPackageButton.addEventListener("click", async () => {
+        if (!state.runId || downloadPackageButton.disabled) {
+          return;
+        }
+
+        const previousLabel = downloadPackageButton.textContent;
+        downloadPackageButton.textContent = "Preparing package...";
+        downloadPackageButton.disabled = true;
+        try {
+          await downloadPackage(state.runId);
+        } catch (error) {
+          eventsOutput.textContent += `[error] ${error.message}\n`;
+        } finally {
+          downloadPackageButton.textContent = previousLabel;
+          setDownloadEnabled(true);
+        }
+      });
+
+      resetArtifactView();
       setButtons({ canGenerate: true, canCancel: false, canRetry: false });
     </script>
   </body>

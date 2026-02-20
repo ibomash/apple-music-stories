@@ -28,6 +28,10 @@ class ToolLoopState:
     max_steps: int
     step: int = 0
     apple_music_results: list[AppleMusicResult] = field(default_factory=list)
+    apple_music_query_attempts: int = 0
+    apple_music_nonempty_calls: int = 0
+    apple_music_total_results_seen: int = 0
+    apple_music_last_result_count: int = 0
     wikipedia_results: list[WikipediaSummary] = field(default_factory=list)
     attempted_queries: list[str] = field(default_factory=list)
 
@@ -75,7 +79,10 @@ class ClaudeToolLoopAgent(ToolLoopAgent):
             "You are a retrieval planner for a music story pipeline. "
             "Choose exactly one next action as JSON. "
             "Allowed actions: search_apple_music, search_wikipedia, finalize. "
-            "Before finalize, ensure Apple Music has been queried at least once. "
+            "Before finalize, ensure Apple Music has been queried at least once "
+            "(use apple_music_query_attempts). "
+            "Apple Music queries must be concise artist/album/genre terms, "
+            "not full instruction sentences. "
             "Return JSON only with keys: action, query, reason."
         )
 
@@ -83,7 +90,11 @@ class ClaudeToolLoopAgent(ToolLoopAgent):
             "prompt": state.request.prompt,
             "step": state.step,
             "max_steps": state.max_steps,
-            "apple_music_count": len(state.apple_music_results),
+            "apple_music_query_attempts": state.apple_music_query_attempts,
+            "apple_music_nonempty_calls": state.apple_music_nonempty_calls,
+            "apple_music_unique_result_count": len(state.apple_music_results),
+            "apple_music_total_results_seen": state.apple_music_total_results_seen,
+            "apple_music_last_result_count": state.apple_music_last_result_count,
             "wikipedia_count": len(state.wikipedia_results),
             "attempted_queries": state.attempted_queries,
         }

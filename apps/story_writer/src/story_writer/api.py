@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import io
+import json
+import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -131,6 +134,35 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
         if artifact is None:
             raise HTTPException(status_code=404, detail="Artifact not available yet")
         return artifact.model_dump(mode="json")
+
+    @app.get("/v0/runs/{run_id}/artifact/package")
+    async def download_run_artifact_package(run_id: str) -> FileResponse:
+        run_state = store.get_run(run_id)
+        if run_state is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        artifact = store.get_artifact(run_id)
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="Artifact not available yet")
+
+        package_dir = resolved_config.storage_root / "packages"
+        package_dir.mkdir(parents=True, exist_ok=True)
+        package_path = package_dir / f"{run_id}.zip"
+
+        payload = artifact.model_dump(mode="json")
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("story.mdx", artifact.story_mdx)
+            zf.writestr(
+                "artifact.json", json.dumps(payload, indent=2, ensure_ascii=True)
+            )
+        package_path.write_bytes(buffer.getvalue())
+
+        return FileResponse(
+            package_path,
+            media_type="application/zip",
+            filename=f"{run_id}-story-package.zip",
+        )
 
     @app.post("/v0/runs/{run_id}/cancel", response_model=CancelRunResponse)
     async def cancel_run(run_id: str) -> CancelRunResponse:
