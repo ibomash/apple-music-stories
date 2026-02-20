@@ -18,6 +18,7 @@ class AppConfig(BaseModel):
     apple_music_storefront: str = "us"
     apple_music_timeout_seconds: float = 15.0
     wikipedia_timeout_seconds: float = 10.0
+    tool_loop_max_steps: int = 6
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -39,6 +40,7 @@ class AppConfig(BaseModel):
             apple_music_storefront=_env_str("APPLE_MUSIC_STOREFRONT", "us"),
             apple_music_timeout_seconds=_env_float("APPLE_MUSIC_TIMEOUT_SECONDS", 15.0),
             wikipedia_timeout_seconds=_env_float("WIKIPEDIA_TIMEOUT_SECONDS", 10.0),
+            tool_loop_max_steps=_env_int("STORY_WRITER_TOOL_LOOP_MAX_STEPS", 6),
         )
 
 

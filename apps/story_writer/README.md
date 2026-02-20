@@ -2,13 +2,21 @@
 
 This is the local-first server harness for Music Story generation.
 
+- User guide: `apps/story_writer/USER_GUIDE.md`
+
 V0 goal: validate the server-side run loop end-to-end with a simple API and thin clients before iOS integration.
+
+Current loop architecture is a **hybrid agent workflow**:
+
+- Agentic retrieval loop: model decides which tool to call next (bounded decide-and-call-tools).
+- Workflow-controlled finishing: service handles drafting, validation, optional repair, and artifact persistence.
 
 ## What this ships
 
 - Python HTTP API (`FastAPI`) for run-based generation.
 - Local file-backed storage for runs, events, and artifacts.
 - One-shot orchestration pipeline (retrieve -> draft -> validate -> optional repair -> artifact).
+- Model-driven, bounded decide-and-call-tools loop for retrieval.
 - Apple Music search fallback logic for long prompts (retries with simplified query candidates).
 - Wikipedia requests with explicit User-Agent to satisfy Wikimedia robot policy.
 - Minimal web client at `/`.
@@ -43,7 +51,9 @@ apps/story_writer/
       sources.py
   tests/
     test_api_contract.py
+    test_orchestrator_behavior.py
     test_validation.py
+  TOOL_LOOP_PROTOCOL.md
   web/
     index.html
 ```
@@ -116,6 +126,12 @@ Fetch artifact:
 uv run --project apps/story_writer story-writer-cli artifact run_abc123
 ```
 
+Preflight (live readiness):
+
+```bash
+uv run --project apps/story_writer story-writer-cli preflight
+```
+
 ### Live end-to-end verification (Prince retrospective)
 
 ```bash
@@ -140,6 +156,7 @@ Current promoted live example:
 ### Endpoints
 
 - `GET /v0/health`
+- `GET /v0/preflight`
 - `POST /v0/runs`
 - `GET /v0/runs/{run_id}`
 - `GET /v0/runs/{run_id}/events`
@@ -198,6 +215,7 @@ Current promoted live example:
 - `APPLE_MUSIC_DEVELOPER_TOKEN`: required in live mode
 - `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`: optional token file path
 - `APPLE_MUSIC_STOREFRONT`: default `us`
+- `STORY_WRITER_TOOL_LOOP_MAX_STEPS`: max planner loop steps (default `6`)
 
 ## Local storage
 
@@ -221,6 +239,7 @@ The current tests validate:
 - Artifact availability after completion.
 - Story validation pipeline for schema/parser compatibility.
 - Apple Music query fallback behavior in orchestrator.
+- Model-driven tool loop execution behavior.
 - Wikipedia client User-Agent header behavior.
 
 ## Troubleshooting
@@ -235,6 +254,7 @@ The current tests validate:
 
 - Verify `ANTHROPIC_API_KEY` and network access.
 - Confirm model identifier in `STORY_WRITER_MODEL` is available on your account.
+- If Anthropic returns `529 overloaded_error`, retry the run; planner/draft calls include bounded retries and a fallback planner path, but upstream overload can still fail a run.
 
 ### Artifact not found
 

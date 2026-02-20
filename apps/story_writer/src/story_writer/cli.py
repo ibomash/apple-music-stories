@@ -40,6 +40,8 @@ def main() -> int:
     cancel_parser = subparsers.add_parser("cancel", help="Cancel run")
     cancel_parser.add_argument("run_id", help="Run id")
 
+    subparsers.add_parser("preflight", help="Check live-mode readiness")
+
     args = parser.parse_args()
 
     client = httpx.Client(timeout=30.0)
@@ -84,6 +86,13 @@ def main() -> int:
             _raise_for_status(response)
             print(json.dumps(response.json(), indent=2))
             return 0
+
+        if args.command == "preflight":
+            response = client.get(f"{base_url}/v0/preflight")
+            _raise_for_status(response)
+            payload = response.json()
+            print(json.dumps(payload, indent=2))
+            return 0 if payload.get("ready") else 1
 
         parser.error("unknown command")
         return 2

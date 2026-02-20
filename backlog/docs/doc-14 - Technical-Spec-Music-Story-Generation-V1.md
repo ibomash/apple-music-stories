@@ -72,6 +72,8 @@ Server-side orchestration is the primary architecture for V0 and V1.
 
 For V0/V1, use a thin explicit orchestrator (plain Python service code), not a heavy durable workflow framework.
 
+This yields a hybrid runtime: model-driven tool selection inside a workflow-controlled pipeline for drafting/validation/persistence.
+
 1. Do now: direct model API + explicit tool loop + clear run state machine.
 2. Defer: LangGraph/Temporal unless operational evidence demands durable workflows.
 
@@ -88,6 +90,13 @@ Primary objective:
 Primary objective:
 
 - Keep the same core API shape but productionize reliability, persistence, and client integration.
+
+Key implementation requirement:
+
+1. Introduce a model-driven decide-and-call-tools loop.
+2. Model can invoke Apple Music/Wikipedia tools iteratively based on intermediate findings.
+3. Runtime enforces strict safety bounds (max steps, max tool calls, max tokens, timeout).
+4. Event stream must reflect each model decision and tool invocation.
 
 ### 5.3 V2+
 
@@ -339,8 +348,9 @@ V1 keeps the same core API shape and adds hardening:
 1. Better run persistence and crash recovery.
 2. Cleaner event taxonomy and UI formatting (still can expose verbatim notes).
 3. iOS client integration with run + artifact endpoints.
-4. Improved retrieval quality checks and missing-album detection.
-5. Export packaging (`story.mdx` + assets bundle) path.
+4. Model-driven iterative tool-calling loop (decide-and-call-tools) with bounded execution.
+5. Improved retrieval quality checks and missing-album detection.
+6. Export packaging (`story.mdx` + assets bundle) path.
 
 Still explicitly deferred in V1:
 

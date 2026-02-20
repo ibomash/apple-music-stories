@@ -10,6 +10,7 @@ from story_writer.orchestrator import MockStoryWriter, StoryOrchestrator
 from story_writer.storage import LocalRunStore
 from story_writer.tools.apple_music import AppleMusicResult
 from story_writer.tools.wikipedia import WikipediaClient, WikipediaSummary
+from story_writer.tool_loop import ToolDecision
 
 
 @dataclass
@@ -40,6 +41,42 @@ class EmptyWikiClient:
         return []
 
 
+class StubToolLoopAgent:
+    def __init__(self) -> None:
+        self._decisions = [
+            ToolDecision(
+                action="search_apple_music",
+                query="Prince retrospective",
+                reason="seed music",
+            ),
+            ToolDecision(
+                action="search_apple_music",
+                query="Prince",
+                reason="narrow search",
+            ),
+            ToolDecision(
+                action="search_wikipedia", query="Prince", reason="need context"
+            ),
+            ToolDecision(action="finalize", reason="enough sources"),
+        ]
+        self.calls: int = 0
+
+    async def decide(self, state):  # noqa: ANN001
+        decision = self._decisions[min(self.calls, len(self._decisions) - 1)]
+        self.calls += 1
+        return decision
+
+
+class AlwaysWikipediaAgent:
+    async def decide(self, state):  # noqa: ANN001
+        return ToolDecision(action="search_wikipedia", query="Prince", reason="loop")
+
+
+class FailingAgent:
+    async def decide(self, state):  # noqa: ANN001
+        raise RuntimeError("planner overloaded")
+
+
 def test_orchestrator_retries_with_simpler_apple_music_query(tmp_path: Path) -> None:
     store = LocalRunStore(tmp_path / "writer")
     config = AppConfig(mode="mock", storage_root=tmp_path / "writer")
@@ -68,10 +105,102 @@ def test_orchestrator_retries_with_simpler_apple_music_query(tmp_path: Path) -> 
     events = store.list_events(created.run_id)
     assert events is not None
     assert any(
-        event.type == "model_note"
-        and event.message.startswith("Retrying Apple Music search with simpler query:")
+        event.message.startswith("tool-loop action: search_apple_music")
         for event in events
     )
+
+
+def test_orchestrator_executes_model_driven_tool_loop(tmp_path: Path) -> None:
+    store = LocalRunStore(tmp_path / "writer")
+    config = AppConfig(mode="mock", storage_root=tmp_path / "writer")
+    request = CreateRunRequest(prompt="Prince retrospective")
+    created = store.create_run(request)
+
+    agent = StubToolLoopAgent()
+    orchestrator = StoryOrchestrator(
+        store=store,
+        config=config,
+        apple_music_client=RetryAppleMusicClient(calls=[]),
+        wikipedia_client=EmptyWikiClient(),
+        writer=MockStoryWriter(),
+        tool_loop_agent=agent,
+    )
+
+    asyncio.run(orchestrator.run(created.run_id, request))
+
+    state = store.get_run(created.run_id)
+    assert state is not None
+    assert state.status == "completed"
+    assert agent.calls >= 4
+
+    events = store.list_events(created.run_id)
+    assert events is not None
+    assert any(
+        event.message.startswith("tool-loop action: search_apple_music")
+        for event in events
+    )
+    assert any(
+        event.message.startswith("tool-loop action: search_wikipedia")
+        for event in events
+    )
+
+
+def test_orchestrator_forces_apple_music_before_loop_end(tmp_path: Path) -> None:
+    store = LocalRunStore(tmp_path / "writer")
+    config = AppConfig(
+        mode="mock", storage_root=tmp_path / "writer", tool_loop_max_steps=3
+    )
+    request = CreateRunRequest(prompt="Prince retrospective")
+    created = store.create_run(request)
+    apple_client = RetryAppleMusicClient(calls=[])
+
+    orchestrator = StoryOrchestrator(
+        store=store,
+        config=config,
+        apple_music_client=apple_client,
+        wikipedia_client=EmptyWikiClient(),
+        writer=MockStoryWriter(),
+        tool_loop_agent=AlwaysWikipediaAgent(),
+    )
+
+    asyncio.run(orchestrator.run(created.run_id, request))
+
+    state = store.get_run(created.run_id)
+    assert state is not None
+    assert state.status == "completed"
+    assert len(apple_client.calls) >= 1
+    events = store.list_events(created.run_id)
+    assert events is not None
+    assert any(
+        event.message
+        == "tool-loop reached max steps; proceeding with collected context"
+        for event in events
+    )
+
+
+def test_orchestrator_falls_back_when_planner_fails(tmp_path: Path) -> None:
+    store = LocalRunStore(tmp_path / "writer")
+    config = AppConfig(mode="mock", storage_root=tmp_path / "writer")
+    request = CreateRunRequest(prompt="Prince retrospective")
+    created = store.create_run(request)
+
+    orchestrator = StoryOrchestrator(
+        store=store,
+        config=config,
+        apple_music_client=RetryAppleMusicClient(calls=[]),
+        wikipedia_client=EmptyWikiClient(),
+        writer=MockStoryWriter(),
+        tool_loop_agent=FailingAgent(),
+    )
+
+    asyncio.run(orchestrator.run(created.run_id, request))
+
+    state = store.get_run(created.run_id)
+    assert state is not None
+    assert state.status == "completed"
+    events = store.list_events(created.run_id)
+    assert events is not None
+    assert any("using fallback strategy" in event.message for event in events)
 
 
 def test_wikipedia_client_sends_user_agent_header(monkeypatch) -> None:

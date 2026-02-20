@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import asyncio
 from dataclasses import dataclass
 
 import httpx
@@ -8,6 +9,13 @@ import httpx
 from story_writer.config import AppConfig
 from story_writer.models import CreateRunRequest, ProvenancePayload, StoryArtifact
 from story_writer.storage import LocalRunStore
+from story_writer.tool_loop import (
+    ClaudeToolLoopAgent,
+    MockToolLoopAgent,
+    ToolDecision,
+    ToolLoopAgent,
+    ToolLoopState,
+)
 from story_writer.tools import (
     AppleMusicAuthError,
     AppleMusicClient,
@@ -148,10 +156,22 @@ class ClaudeStoryWriter(StoryWriter):
             ],
         }
 
+        retries = 2
+        response: httpx.Response | None = None
         async with httpx.AsyncClient(timeout=90.0) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages", headers=headers, json=payload
-            )
+            for attempt in range(retries + 1):
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers=headers,
+                    json=payload,
+                )
+                if response.status_code not in {429, 529}:
+                    break
+                if attempt < retries:
+                    await asyncio.sleep(1.0 * (attempt + 1))
+
+        if response is None:
+            raise RuntimeError("Anthropic request returned no response")
 
         if response.status_code >= 400:
             raise RuntimeError(
@@ -185,6 +205,7 @@ class StoryOrchestrator:
         apple_music_client: AppleMusicClient | MockAppleMusicClient | None = None,
         wikipedia_client: WikipediaClient | MockWikipediaClient | None = None,
         writer: StoryWriter | None = None,
+        tool_loop_agent: ToolLoopAgent | None = None,
     ) -> None:
         self.store = store
         self.config = config
@@ -193,6 +214,8 @@ class StoryOrchestrator:
         )
         self.wikipedia_client = wikipedia_client or _build_wikipedia_client(config)
         self.writer = writer or _build_writer(config)
+        self.tool_loop_agent = tool_loop_agent or _build_tool_loop_agent(config)
+        self.fallback_tool_loop_agent: ToolLoopAgent = MockToolLoopAgent()
 
     async def run(self, run_id: str, request: CreateRunRequest) -> None:
         self.store.set_status(run_id, "running")
@@ -202,55 +225,14 @@ class StoryOrchestrator:
             self._raise_if_cancelled(run_id)
             source_tracker = SourceTracker()
 
-            self.store.append_event(
-                run_id, "tool_call_started", "Searching Apple Music catalog"
+            apple_music_results, wikipedia_results = await self._run_tool_loop(
+                run_id=run_id,
+                request=request,
+                source_tracker=source_tracker,
             )
-            apple_music_results: list[AppleMusicResult] = []
-            for index, query in enumerate(_candidate_queries(request.prompt), start=1):
-                if index > 1:
-                    self.store.append_event(
-                        run_id,
-                        "model_note",
-                        f"Retrying Apple Music search with simpler query: {query}",
-                    )
-                apple_music_results = await self.apple_music_client.search_catalog(
-                    query, limit=5
-                )
-                if apple_music_results:
-                    break
-            self.store.append_event(
-                run_id,
-                "tool_call_completed",
-                f"Apple Music returned {len(apple_music_results)} result(s)",
-            )
+
             if not apple_music_results:
                 raise RuntimeError("Apple Music search returned no results.")
-
-            for item in apple_music_results:
-                if item.url:
-                    source_tracker.add(
-                        label=f"Apple Music - {item.title}",
-                        url=item.url,
-                        source_type="apple_music",
-                    )
-
-            self._raise_if_cancelled(run_id)
-
-            self.store.append_event(run_id, "tool_call_started", "Searching Wikipedia")
-            wikipedia_results = await self.wikipedia_client.search(
-                request.prompt, limit=3
-            )
-            self.store.append_event(
-                run_id,
-                "tool_call_completed",
-                f"Wikipedia returned {len(wikipedia_results)} result(s)",
-            )
-            for item in wikipedia_results:
-                source_tracker.add(
-                    label=f"Wikipedia - {item.title}",
-                    url=item.url,
-                    source_type="wikipedia",
-                )
 
             self._raise_if_cancelled(run_id)
 
@@ -315,13 +297,147 @@ class StoryOrchestrator:
             self.store.set_status(run_id, "failed", error=message)
             self.store.append_event(run_id, "run_failed", message)
         except Exception as exc:  # noqa: BLE001
-            message = str(exc)
+            message = str(exc).strip() or repr(exc)
             self.store.set_status(run_id, "failed", error=message)
             self.store.append_event(run_id, "run_failed", message)
 
     def _raise_if_cancelled(self, run_id: str) -> None:
         if self.store.is_cancel_requested(run_id):
             raise CancelledRunError("Run cancelled")
+
+    async def _run_tool_loop(
+        self,
+        *,
+        run_id: str,
+        request: CreateRunRequest,
+        source_tracker: SourceTracker,
+    ) -> tuple[list[AppleMusicResult], list[WikipediaSummary]]:
+        state = ToolLoopState(
+            request=request, max_steps=self.config.tool_loop_max_steps
+        )
+        finalized = False
+
+        for step in range(1, self.config.tool_loop_max_steps + 1):
+            self._raise_if_cancelled(run_id)
+            state.step = step
+            try:
+                decision = await self.tool_loop_agent.decide(state)
+            except Exception as exc:  # noqa: BLE001
+                self.store.append_event(
+                    run_id,
+                    "model_note",
+                    f"tool-loop planner unavailable, using fallback strategy: {exc}",
+                )
+                decision = await self.fallback_tool_loop_agent.decide(state)
+            decision = self._normalize_decision(state, decision)
+            self.store.append_event(
+                run_id,
+                "model_note",
+                f"tool-loop action: {decision.action} ({decision.reason})",
+            )
+
+            if decision.action == "finalize":
+                finalized = True
+                break
+
+            if decision.action == "search_apple_music":
+                await self._execute_apple_music_step(
+                    run_id, state, decision, source_tracker
+                )
+                continue
+
+            if decision.action == "search_wikipedia":
+                await self._execute_wikipedia_step(
+                    run_id, state, decision, source_tracker
+                )
+                continue
+
+        if not finalized:
+            self.store.append_event(
+                run_id,
+                "model_note",
+                "tool-loop reached max steps; proceeding with collected context",
+            )
+
+        return state.apple_music_results, state.wikipedia_results
+
+    def _normalize_decision(
+        self,
+        state: ToolLoopState,
+        decision: ToolDecision,
+    ) -> ToolDecision:
+        if decision.action == "search_apple_music":
+            return decision
+
+        remaining_steps = self.config.tool_loop_max_steps - state.step
+        if not state.apple_music_results and remaining_steps <= 2:
+            fallback_query = _candidate_queries(state.request.prompt)[0]
+            return ToolDecision(
+                action="search_apple_music",
+                query=fallback_query,
+                reason="forced fallback to ensure Apple Music anchors before finalize",
+            )
+        return decision
+
+    async def _execute_apple_music_step(
+        self,
+        run_id: str,
+        state: ToolLoopState,
+        decision: ToolDecision,
+        source_tracker: SourceTracker,
+    ) -> None:
+        query = decision.query or state.request.prompt
+        if query in state.attempted_queries:
+            fallback = _candidate_queries(state.request.prompt)
+            for item in fallback:
+                if item not in state.attempted_queries:
+                    query = item
+                    break
+
+        state.attempted_queries.append(query)
+        self.store.append_event(
+            run_id, "tool_call_started", f"Searching Apple Music: {query}"
+        )
+        results = await self.apple_music_client.search_catalog(query, limit=5)
+        self.store.append_event(
+            run_id,
+            "tool_call_completed",
+            f"Apple Music returned {len(results)} result(s)",
+        )
+        state.apple_music_results = results
+        for item in results:
+            if item.url:
+                source_tracker.add(
+                    label=f"Apple Music - {item.title}",
+                    url=item.url,
+                    source_type="apple_music",
+                )
+
+    async def _execute_wikipedia_step(
+        self,
+        run_id: str,
+        state: ToolLoopState,
+        decision: ToolDecision,
+        source_tracker: SourceTracker,
+    ) -> None:
+        query = decision.query or state.request.prompt
+        state.attempted_queries.append("search_wikipedia")
+        self.store.append_event(
+            run_id, "tool_call_started", f"Searching Wikipedia: {query}"
+        )
+        results = await self.wikipedia_client.search(query, limit=3)
+        self.store.append_event(
+            run_id,
+            "tool_call_completed",
+            f"Wikipedia returned {len(results)} result(s)",
+        )
+        state.wikipedia_results = results
+        for item in results:
+            source_tracker.add(
+                label=f"Wikipedia - {item.title}",
+                url=item.url,
+                source_type="wikipedia",
+            )
 
 
 def _build_apple_music_client(
@@ -347,6 +463,15 @@ def _build_writer(config: AppConfig) -> StoryWriter:
         return MockStoryWriter()
     return ClaudeStoryWriter(
         api_key=config.anthropic_api_key, model_name=config.model_name
+    )
+
+
+def _build_tool_loop_agent(config: AppConfig) -> ToolLoopAgent:
+    if config.mode == "mock":
+        return MockToolLoopAgent()
+    return ClaudeToolLoopAgent(
+        api_key=config.anthropic_api_key,
+        model_name=config.model_name,
     )
 
 

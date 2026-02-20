@@ -33,6 +33,9 @@ For web story renderer smoke checks, run `uv run scripts/render_story.py serve -
 - Run tests with `uv run --project apps/story_writer --extra dev pytest apps/story_writer/tests`.
 - Live mode requires both `ANTHROPIC_API_KEY` and Apple Music developer token (`APPLE_MUSIC_DEVELOPER_TOKEN` or `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`).
 - V0 event transport is polling-based (`GET /v0/runs/{run_id}` + `/events`); no SSE requirement in V0.
+- Use `GET /v0/preflight` (or `story-writer-cli preflight`) before live runs to validate credentials/connectivity.
+- Retrieval is model-driven via a bounded decide-and-call-tools loop; protocol is documented in `apps/story_writer/TOOL_LOOP_PROTOCOL.md`.
+- Operator-facing usage guide for current clients is in `apps/story_writer/USER_GUIDE.md`.
 - Save generated stories under `stories/<story-id>/story.mdx` when promoting an output into repo fixtures/examples.
 - Live verification prompt used for regression: Prince full-career retrospective (eras + key albums + major videos), currently persisted at `stories/prince-career-retrospective-v0-live/story.mdx`.
 

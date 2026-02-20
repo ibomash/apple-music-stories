@@ -11,11 +11,14 @@ from story_writer.models import (
     CancelRunResponse,
     CreateRunRequest,
     CreateRunResponse,
+    PreflightCheck,
+    PreflightResponse,
     RunEventsResponse,
     RunState,
 )
 from story_writer.orchestrator import StoryOrchestrator
 from story_writer.storage import LocalRunStore
+from story_writer.tools.apple_music import AppleMusicClient
 
 
 def create_app(config: AppConfig | None = None) -> FastAPI:
@@ -35,6 +38,67 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
             "status": "ok",
             "mode": resolved_config.mode,
         }
+
+    @app.get("/v0/preflight", response_model=PreflightResponse)
+    async def preflight() -> PreflightResponse:
+        checks: list[PreflightCheck] = []
+
+        if resolved_config.mode == "live":
+            checks.append(
+                PreflightCheck(
+                    name="anthropic_api_key",
+                    ok=bool(resolved_config.anthropic_api_key),
+                    detail=(
+                        "present"
+                        if resolved_config.anthropic_api_key
+                        else "missing ANTHROPIC_API_KEY"
+                    ),
+                )
+            )
+            checks.append(
+                PreflightCheck(
+                    name="apple_music_developer_token",
+                    ok=bool(resolved_config.apple_music_developer_token),
+                    detail=(
+                        "present"
+                        if resolved_config.apple_music_developer_token
+                        else "missing APPLE_MUSIC_DEVELOPER_TOKEN or _PATH"
+                    ),
+                )
+            )
+
+            connectivity_ok = False
+            connectivity_detail = "skipped"
+            if resolved_config.apple_music_developer_token:
+                client = AppleMusicClient(
+                    developer_token=resolved_config.apple_music_developer_token,
+                    storefront=resolved_config.apple_music_storefront,
+                    timeout_seconds=resolved_config.apple_music_timeout_seconds,
+                )
+                try:
+                    await client.search_catalog("Prince", limit=1)
+                    connectivity_ok = True
+                    connectivity_detail = "ok"
+                except Exception as exc:  # noqa: BLE001
+                    connectivity_detail = f"failed: {exc}"
+            checks.append(
+                PreflightCheck(
+                    name="apple_music_connectivity",
+                    ok=connectivity_ok,
+                    detail=connectivity_detail,
+                )
+            )
+        else:
+            checks.append(
+                PreflightCheck(
+                    name="runtime_mode",
+                    ok=True,
+                    detail="mock mode; live credentials not required",
+                )
+            )
+
+        ready = all(check.ok for check in checks)
+        return PreflightResponse(mode=resolved_config.mode, ready=ready, checks=checks)
 
     @app.post("/v0/runs", status_code=202, response_model=CreateRunResponse)
     async def create_run(request: CreateRunRequest) -> CreateRunResponse:

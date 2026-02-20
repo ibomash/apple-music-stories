@@ -19,6 +19,28 @@ def test_health_endpoint(tmp_path: Path) -> None:
     assert response.json()["status"] == "ok"
 
 
+def test_preflight_reports_missing_live_credentials(tmp_path: Path) -> None:
+    app = create_app(
+        AppConfig(
+            mode="live",
+            storage_root=tmp_path / "writer",
+            anthropic_api_key=None,
+            apple_music_developer_token=None,
+        )
+    )
+    client = TestClient(app)
+
+    response = client.get("/v0/preflight")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "live"
+    assert payload["ready"] is False
+    checks = {item["name"]: item for item in payload["checks"]}
+    assert checks["anthropic_api_key"]["ok"] is False
+    assert checks["apple_music_developer_token"]["ok"] is False
+
+
 def test_create_run_and_fetch_artifact(tmp_path: Path) -> None:
     app = create_app(AppConfig(mode="mock", storage_root=tmp_path / "writer"))
     client = TestClient(app)

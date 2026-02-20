@@ -100,3 +100,15 @@ class StoryArtifact(BaseModel):
 class CancelRunResponse(BaseModel):
     run_id: str
     status: RunStatus
+
+
+class PreflightCheck(BaseModel):
+    name: str
+    ok: bool
+    detail: str
+
+
+class PreflightResponse(BaseModel):
+    mode: str
+    ready: bool
+    checks: list[PreflightCheck]
