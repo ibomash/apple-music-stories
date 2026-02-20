@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Music Story Writer V0</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f2ea;
+        --surface: #fffdf9;
+        --ink: #1b1a18;
+        --muted: #5e5a53;
+        --accent: #1d6fa3;
+        --border: #d8d0c3;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Iowan Old Style", "Georgia", serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 10% 10%, #fefaf2 0%, var(--bg) 55%);
+      }
+      .shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 2rem;
+      }
+      .subhead {
+        margin-top: 6px;
+        color: var(--muted);
+      }
+      .grid {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      textarea,
+      select,
+      input {
+        width: 100%;
+        border: 1px solid #cfc7bb;
+        border-radius: 10px;
+        padding: 10px;
+        background: #ffffff;
+        color: var(--ink);
+        font: inherit;
+      }
+      textarea {
+        min-height: 110px;
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+      }
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .primary {
+        background: var(--accent);
+        color: white;
+      }
+      .secondary {
+        background: #ddd4c7;
+        color: #2d2924;
+      }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: "SF Mono", "Menlo", monospace;
+        font-size: 0.8rem;
+      }
+      .meta {
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>Music Story Writer V0</h1>
+      <p class="subhead">Local API harness for server-side story generation.</p>
+
+      <section class="panel">
+        <label for="prompt">Prompt</label>
+        <textarea id="prompt" placeholder="Write a mini magazine story about 90s trip-hop and what to hear first"></textarea>
+
+        <div class="row" style="margin-top: 10px;">
+          <div>
+            <label for="template">Starter Template</label>
+            <select id="template">
+              <option value="">None</option>
+              <option value="artist_deep_dive">Artist deep dive</option>
+              <option value="new_releases_weekly">This week's new releases</option>
+              <option value="genre_overview">Genre overview</option>
+              <option value="album_retrospective">Album retrospective</option>
+            </select>
+          </div>
+          <div>
+            <label for="tone">Tone Hint</label>
+            <input id="tone" value="critical but accessible">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="generate" class="primary">Generate</button>
+          <button id="cancel" class="secondary" disabled>Cancel</button>
+          <button id="retry" class="secondary" disabled>Retry</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="meta" id="run-meta">No run started.</div>
+          <pre id="events"></pre>
+        </article>
+        <article class="panel">
+          <div class="meta">Artifact</div>
+          <pre id="artifact"></pre>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        runId: null,
+        lastPayload: null,
+        timer: null,
+        lastEventIdx: 0,
+      };
+
+      const promptInput = document.getElementById("prompt");
+      const templateInput = document.getElementById("template");
+      const toneInput = document.getElementById("tone");
+      const eventsOutput = document.getElementById("events");
+      const artifactOutput = document.getElementById("artifact");
+      const runMeta = document.getElementById("run-meta");
+      const generateButton = document.getElementById("generate");
+      const cancelButton = document.getElementById("cancel");
+      const retryButton = document.getElementById("retry");
+
+      function setButtons({ canGenerate, canCancel, canRetry }) {
+        generateButton.disabled = !canGenerate;
+        cancelButton.disabled = !canCancel;
+        retryButton.disabled = !canRetry;
+      }
+
+      async function createRun(payload) {
+        const response = await fetch("/v0/runs", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json();
+      }
+
+      async function fetchRun(runId) {
+        const response = await fetch(`/v0/runs/${runId}`);
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json();
+      }
+
+      async function fetchEvents(runId) {
+        const response = await fetch(`/v0/runs/${runId}/events`);
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json();
+      }
+
+      async function fetchArtifact(runId) {
+        const response = await fetch(`/v0/runs/${runId}/artifact`);
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json();
+      }
+
+      async function poll() {
+        if (!state.runId) {
+          return;
+        }
+        try {
+          const [run, events] = await Promise.all([
+            fetchRun(state.runId),
+            fetchEvents(state.runId),
+          ]);
+
+          runMeta.textContent = `Run ${run.run_id}: ${run.status}`;
+
+          for (const event of events.events) {
+            if (event.idx <= state.lastEventIdx) {
+              continue;
+            }
+            eventsOutput.textContent += `[${event.type}] ${event.message}\n`;
+            state.lastEventIdx = event.idx;
+          }
+
+          if (["completed", "failed", "cancelled"].includes(run.status)) {
+            clearInterval(state.timer);
+            state.timer = null;
+            setButtons({ canGenerate: true, canCancel: false, canRetry: Boolean(state.lastPayload) });
+
+            if (run.status === "completed") {
+              const artifact = await fetchArtifact(state.runId);
+              artifactOutput.textContent = JSON.stringify(artifact, null, 2);
+            }
+          }
+        } catch (error) {
+          clearInterval(state.timer);
+          state.timer = null;
+          setButtons({ canGenerate: true, canCancel: false, canRetry: Boolean(state.lastPayload) });
+          eventsOutput.textContent += `[error] ${error.message}\n`;
+        }
+      }
+
+      generateButton.addEventListener("click", async () => {
+        const prompt = promptInput.value.trim();
+        if (!prompt) {
+          return;
+        }
+        const payload = {
+          prompt,
+          starter_template: templateInput.value || undefined,
+          tone_hint: toneInput.value || undefined,
+        };
+        state.lastPayload = payload;
+        state.lastEventIdx = 0;
+        eventsOutput.textContent = "";
+        artifactOutput.textContent = "";
+
+        setButtons({ canGenerate: false, canCancel: false, canRetry: false });
+        try {
+          const created = await createRun(payload);
+          state.runId = created.run_id;
+          runMeta.textContent = `Run ${state.runId}: queued`;
+          setButtons({ canGenerate: false, canCancel: true, canRetry: false });
+          state.timer = setInterval(poll, 500);
+        } catch (error) {
+          setButtons({ canGenerate: true, canCancel: false, canRetry: Boolean(state.lastPayload) });
+          eventsOutput.textContent += `[error] ${error.message}\n`;
+        }
+      });
+
+      cancelButton.addEventListener("click", async () => {
+        if (!state.runId) {
+          return;
+        }
+        try {
+          await fetch(`/v0/runs/${state.runId}/cancel`, { method: "POST" });
+        } catch (error) {
+          eventsOutput.textContent += `[error] ${error.message}\n`;
+        }
+      });
+
+      retryButton.addEventListener("click", async () => {
+        if (!state.lastPayload) {
+          return;
+        }
+        promptInput.value = state.lastPayload.prompt || "";
+        templateInput.value = state.lastPayload.starter_template || "";
+        toneInput.value = state.lastPayload.tone_hint || "";
+        generateButton.click();
+      });
+
+      setButtons({ canGenerate: true, canCancel: false, canRetry: false });
+    </script>
+  </body>
+</html>

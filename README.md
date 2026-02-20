@@ -24,6 +24,16 @@ Reference docs:
 - Architecture overview: `ios/architecture.md`
 - Development workflow: `ios/development.md`
 
+## Story writer API (V0)
+
+A local-first Python API harness for server-side story generation lives in `apps/story_writer/`.
+
+- Project docs and API contract: `apps/story_writer/README.md`
+- Run server: `uv run --project apps/story_writer uvicorn story_writer.api:app --host 127.0.0.1 --port 8787 --reload`
+- Run tests: `uv run --project apps/story_writer --extra dev pytest apps/story_writer/tests`
+- Live mode requires `ANTHROPIC_API_KEY` and Apple Music developer token (`APPLE_MUSIC_DEVELOPER_TOKEN` or `_PATH`).
+- Latest live-generated fixture: `stories/prince-career-retrospective-v0-live/story.mdx`
+
 ## Renderer
 
 ### Static export

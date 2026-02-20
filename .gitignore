@@ -5,6 +5,8 @@
 # Local secrets
 LocalSecrets.xcconfig
 ios/MusicStoryRenderer/Config/Secrets.xcconfig
+apps/story_writer/.envrc
+apps/story_writer/.env
 
 # macOS metadata
 .DS_Store
@@ -18,6 +20,12 @@ logs/
 scripts/__pycache__/
 .auth/
 ios/diagnostic-logs-*.jsonl
+.cache/story-writer/
+
+# Python virtual environments
+.venv/
+apps/story_writer/.venv/
+__pycache__/
 
 # XcodeGen output
 ios/MusicStoryRenderer/*.xcodeproj

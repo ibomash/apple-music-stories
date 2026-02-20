@@ -27,6 +27,15 @@ Always write and run relevant tests for changes. If tests cannot run in the curr
 
 For web story renderer smoke checks, run `uv run scripts/render_story.py serve --host 127.0.0.1 --port 8000` and `node scripts/puppeteer_story_test.js` (override with `STORY_BASE_URL`).
 
+## Story Writer API (V0)
+
+- Local API project lives in `apps/story_writer/`.
+- Run tests with `uv run --project apps/story_writer --extra dev pytest apps/story_writer/tests`.
+- Live mode requires both `ANTHROPIC_API_KEY` and Apple Music developer token (`APPLE_MUSIC_DEVELOPER_TOKEN` or `APPLE_MUSIC_DEVELOPER_TOKEN_PATH`).
+- V0 event transport is polling-based (`GET /v0/runs/{run_id}` + `/events`); no SSE requirement in V0.
+- Save generated stories under `stories/<story-id>/story.mdx` when promoting an output into repo fixtures/examples.
+- Live verification prompt used for regression: Prince full-career retrospective (eras + key albums + major videos), currently persisted at `stories/prince-career-retrospective-v0-live/story.mdx`.
+
 ## Story Authoring
 
 Use `AGENTS-authoring.md` for the authoring-only prompt and guidance.

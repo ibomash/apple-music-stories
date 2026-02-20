@@ -1,0 +1,68 @@
+{
+  "end_notes": [
+    {
+      "source_id": "src-1",
+      "label": "Apple Music - Purple Rain",
+      "url": "https://music.apple.com/us/album/purple-rain/1746833068",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-2",
+      "label": "Apple Music - The Very Best of Prince",
+      "url": "https://music.apple.com/us/album/the-very-best-of-prince/1545704089",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-3",
+      "label": "Apple Music - Sign O' The Times",
+      "url": "https://music.apple.com/us/album/sign-o-the-times/1544303593",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-4",
+      "label": "Apple Music - The Hits / The B-Sides",
+      "url": "https://music.apple.com/us/album/the-hits-the-b-sides/1545712783",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-5",
+      "label": "Apple Music - Prince",
+      "url": "https://music.apple.com/us/album/prince/1544298981",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-6",
+      "label": "Apple Music - Purple Rain",
+      "url": "https://music.apple.com/us/album/purple-rain/1746833068?i=1746833484",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-7",
+      "label": "Apple Music - I Wanna Be Your Lover",
+      "url": "https://music.apple.com/us/album/i-wanna-be-your-lover/1544298981?i=1544298982",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-8",
+      "label": "Apple Music - Kiss",
+      "url": "https://music.apple.com/us/album/kiss/260336005?i=260336471",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-9",
+      "label": "Apple Music - When Doves Cry",
+      "url": "https://music.apple.com/us/album/when-doves-cry/1545704089?i=1545704094",
+      "source_type": "apple_music"
+    },
+    {
+      "source_id": "src-10",
+      "label": "Apple Music - Little Red Corvette",
+      "url": "https://music.apple.com/us/album/little-red-corvette/1544301208?i=1544301210",
+      "source_type": "apple_music"
+    }
+  ],
+  "inline_references": [],
+  "acknowledgements": [
+    "Sources: Apple Music and Wikipedia"
+  ]
+}
