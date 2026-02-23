@@ -12,6 +12,8 @@
 ## Notes
 - Story renderer includes a playlist creation CTA for story media.
 - Playback resume persistence now saves media + track + playback time and can recover across relaunch even when system now playing does not match exactly.
+- TASK-129 shipped: custom `apple-music-stories` deep links now resolve story codes and open matching launch-catalog stories.
+- Story card long-press menus now include `Copy Story Link` for per-story deep links.
 - Linux: focus on SwiftPM core tests, docs, and fixtures; UI changes still require macOS validation.
 - macOS: create the Xcode project, configure signing/MusicKit capability, and run simulator/device builds.
 - TASK-31 should land before or alongside TASK-26 so device testing can validate Apple Music playback.

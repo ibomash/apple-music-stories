@@ -165,6 +165,78 @@ final class StoryDocumentStoreTests: XCTestCase {
         XCTAssertFalse(isCurrent)
     }
 
+    func testStoryDeepLinkCodeRoundTripsForSupportedURLFormats() {
+        let item = makeStoryLaunchItem(
+            source: .savedRemote,
+            sourceURL: URL(string: "https://example.com/story.mdx")
+        )
+        let code = StoryDeepLink.storyCode(for: item)
+
+        guard let canonicalURL = StoryDeepLink.url(for: item) else {
+            return XCTFail("Expected deep-link URL")
+        }
+        XCTAssertEqual(StoryDeepLink.storyCode(from: canonicalURL), code)
+
+        guard let singleSlashURL = URL(string: "apple-music-stories:/story/\(code.lowercased())") else {
+            return XCTFail("Expected single-slash deep-link URL")
+        }
+        XCTAssertEqual(StoryDeepLink.storyCode(from: singleSlashURL), code)
+    }
+
+    func testStoryDeepLinkCodeDiffersAcrossSources() {
+        let bundled = makeStoryLaunchItem(
+            source: .bundled,
+            sourceURL: URL(fileURLWithPath: "/tmp/stories/sample/story.mdx")
+        )
+        let remote = makeStoryLaunchItem(
+            source: .savedRemote,
+            sourceURL: URL(string: "https://example.com/story.mdx")
+        )
+        let local = makeStoryLaunchItem(
+            source: .recentLocal,
+            sourceURL: URL(fileURLWithPath: "/tmp/imports/story.mdx")
+        )
+
+        let bundledCode = StoryDeepLink.storyCode(for: bundled)
+        let remoteCode = StoryDeepLink.storyCode(for: remote)
+        let localCode = StoryDeepLink.storyCode(for: local)
+
+        XCTAssertNotEqual(bundledCode, remoteCode)
+        XCTAssertNotEqual(remoteCode, localCode)
+        XCTAssertNotEqual(bundledCode, localCode)
+    }
+
+    func testStoryItemForDeepLinkCodeFindsAvailableStory() async {
+        let bundleRoot = makeTemporaryBundleRoot()
+        defer { try? FileManager.default.removeItem(at: bundleRoot) }
+        let storiesRoot = bundleRoot.appendingPathComponent("stories", isDirectory: true)
+        let packageURL = storiesRoot.appendingPathComponent("deep-link-story", isDirectory: true)
+        XCTAssertNoThrow(try FileManager.default.createDirectory(at: packageURL, withIntermediateDirectories: true))
+        let storyURL = packageURL.appendingPathComponent("story.mdx")
+        XCTAssertNoThrow(try makeStoryFile(at: storyURL, id: "deep-link-story"))
+        let store = await MainActor.run {
+            StoryDocumentStore(bundleResourceURL: bundleRoot)
+        }
+
+        let stories = await store.availableStories
+        guard let story = stories.first else {
+            return XCTFail("Expected bundled story")
+        }
+
+        let code = StoryDeepLink.storyCode(for: story)
+        let matchedStory = await store.storyItem(forDeepLinkCode: code)
+        XCTAssertEqual(matchedStory?.id, story.id)
+    }
+
+    func testStoryItemForDeepLinkCodeRejectsInvalidCode() async {
+        let store = await MainActor.run {
+            StoryDocumentStore(bundleResourceURL: nil)
+        }
+
+        let story = await store.storyItem(forDeepLinkCode: "not-a-story-code")
+        XCTAssertNil(story)
+    }
+
     func testDeletePersistedStoryClearsState() async {
         let url = URL(string: "https://example.com/story.mdx")!
         let persistedStory = PersistedRemoteStory(
@@ -355,6 +427,17 @@ final class StoryDocumentStoreTests: XCTestCase {
     private func makeStoryFile(at url: URL, id: String = "sample-story") throws {
         let storyText = makeStory(id: id, body: "<Section id=\"intro\" title=\"Intro\">Hello.</Section>")
         try storyText.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func makeStoryLaunchItem(source: StoryLaunchSource, sourceURL: URL?) -> StoryLaunchItem {
+        StoryLaunchItem(
+            id: "\(source.rawValue)-story",
+            metadata: StoryMetadataSnapshot(document: StoryDocument.sample()),
+            source: source,
+            sourceURL: sourceURL,
+            bookmarkData: nil,
+            lastOpened: nil,
+        )
     }
 }
 

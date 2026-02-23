@@ -8,6 +8,8 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 ### Story ingestion
 - `StoryPackageLoader` loads `story.mdx` and resolves `assets/` paths into absolute URLs.
 - Story selection uses a toolbar picker with `fileImporter` to open bundled or on-device story packages; the store keeps security-scoped access active while a picked story is rendered.
+- Launch catalog items expose deterministic deep-link codes and can be opened via `apple-music-stories://story/<code>` (single-slash variant also supported).
+- Story cards support long-press actions including `Copy Story Link`.
 - Errors from loading are surfaced as `StoryLoadState.failed`.
 
 ### Story parsing + models
@@ -36,11 +38,12 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 
 ## Data Flow
 1. `StoryRootView` loads a story via `StoryDocumentStore`.
-2. The store parses the package and publishes `StoryDocument` + diagnostics.
-3. `StoryRendererView` renders the story; media cards call the playback controller.
-4. `AppleMusicPlaybackController` requests authorization, sets `SystemMusicPlayer` queues, and plays.
-5. The playback controller observes player state/queue changes and publishes metadata.
-6. Playback bar + now-playing sheet update using published state.
+2. Optional inbound deep links are resolved to a catalog item before loading.
+3. The store parses the package and publishes `StoryDocument` + diagnostics.
+4. `StoryRendererView` renders the story; media cards call the playback controller.
+5. `AppleMusicPlaybackController` requests authorization, sets `SystemMusicPlayer` queues, and plays.
+6. The playback controller observes player state/queue changes and publishes metadata.
+7. Playback bar + now-playing sheet update using published state.
 
 ## Key Types
 - `StoryDocument`, `StorySection`, `StoryBlock`: normalized content model.

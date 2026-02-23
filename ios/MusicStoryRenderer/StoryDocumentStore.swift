@@ -307,6 +307,15 @@ final class StoryDocumentStore: ObservableObject {
         return document.id == item.metadata.id
     }
 
+    func storyItem(forDeepLinkCode code: String) -> StoryLaunchItem? {
+        guard let normalizedCode = StoryDeepLink.normalizeStoryCode(code) else {
+            return nil
+        }
+        return availableStories.first { item in
+            StoryDeepLink.storyCode(for: item) == normalizedCode
+        }
+    }
+
     private func startSecurityScopedAccess(for url: URL) {
         #if os(iOS) || os(macOS)
             guard url.isFileURL else {

@@ -125,6 +125,7 @@ struct StoryRootView: View {
                 break
             }
         }
+        .onOpenURL(perform: handleIncomingURL)
         .task {
             diagnosticLogger.log(event: "app_launch")
             store.loadInitialStory()
@@ -221,6 +222,24 @@ struct StoryRootView: View {
         }
         urlLoadError = nil
         isShowingURLPrompt = false
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        guard let storyCode = StoryDeepLink.storyCode(from: url) else {
+            return
+        }
+        diagnosticLogger.log(
+            event: "story_deep_link_open_requested",
+            metadata: ["story_code": storyCode]
+        )
+        guard let story = store.storyItem(forDeepLinkCode: storyCode) else {
+            diagnosticLogger.log(
+                event: "story_deep_link_story_missing",
+                metadata: ["story_code": storyCode]
+            )
+            return
+        }
+        openStoryFromCatalog(story)
     }
 }
 

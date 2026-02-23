@@ -146,6 +146,13 @@ private struct StoryCatalogSection: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
+                            if let storyLink = StoryDeepLink.url(for: item) {
+                                Button {
+                                    UIPasteboard.general.string = storyLink.absoluteString
+                                } label: {
+                                    Label("Copy Story Link", systemImage: "doc.on.doc")
+                                }
+                            }
                             if canDelete(item) {
                                 Button(role: .destructive) {
                                     pendingDelete = item
