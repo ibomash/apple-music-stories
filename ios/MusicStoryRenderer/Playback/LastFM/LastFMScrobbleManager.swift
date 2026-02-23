@@ -234,16 +234,16 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
         guard let candidate else {
             return
         }
-        let shouldScrobble = policy.shouldScrobble(candidate: candidate)
+        let eligibility = policy.eligibility(candidate: candidate)
         let playedSeconds = max(0, candidate.lastPlaybackTime)
-        let thresholdSeconds = scrobbleThresholdSeconds(for: candidate)
         var metadata = candidateMetadata(for: candidate)
         metadata["finalize_reason"] = reason
         metadata["played_seconds"] = String(format: "%.3f", playedSeconds)
-        metadata["threshold_seconds"] = String(format: "%.3f", thresholdSeconds)
-        metadata["eligible"] = shouldScrobble ? "true" : "false"
+        metadata["threshold_seconds"] = String(format: "%.3f", eligibility.thresholdSeconds)
+        metadata["threshold_reason"] = eligibility.reason.rawValue
+        metadata["eligible"] = eligibility.isEligible ? "true" : "false"
         diagnosticLogger?.log(event: "scrobble_candidate_finalized", message: nil, metadata: metadata)
-        if shouldScrobble {
+        if eligibility.isEligible {
             queueScrobble(candidate)
         } else {
             appendLog(for: candidate.track, status: .skipped, message: "Playback ended before scrobble threshold (\(reason))")
@@ -427,17 +427,6 @@ final class LastFMScrobbleManager: NSObject, ObservableObject, PlaybackScrobbleH
             metadata[key] = value
         }
         diagnosticLogger?.log(event: event, message: nil, metadata: metadata)
-    }
-
-    private func scrobbleThresholdSeconds(for candidate: LastFMScrobbleCandidate) -> TimeInterval {
-        let duration = candidate.track.duration ?? 0
-        if duration > 0 {
-            if duration >= policy.longTrackMinimumSeconds {
-                return max(0, duration - policy.completionGraceSeconds)
-            }
-            return max(0, duration * policy.completionFraction)
-        }
-        return max(0, policy.fallbackMinimumSeconds)
     }
 
     private func trackKey(for track: LastFMTrack) -> String {
