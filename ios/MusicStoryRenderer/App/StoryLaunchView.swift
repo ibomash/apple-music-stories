@@ -12,6 +12,7 @@ struct StoryLaunchView: View {
     let onLoadStoryURL: () -> Void
     let onDeleteStory: () -> Void
     let onDeleteCatalogStory: (StoryLaunchItem) -> Void
+    let onCreatePlaylist: (StoryLaunchItem) -> Void
 
     var body: some View {
         ZStack {
@@ -30,6 +31,7 @@ struct StoryLaunchView: View {
                         stories: availableStories,
                         onSelectStory: onSelectStory,
                         onDeleteStory: onDeleteCatalogStory,
+                        onCreatePlaylist: onCreatePlaylist,
                     )
                     StorySourceSection(onPickStory: onPickStory, onLoadStoryURL: onLoadStoryURL)
                     StorySettingsSection(scrobbleManager: scrobbleManager, diagnosticLogger: diagnosticLogger)
@@ -46,6 +48,26 @@ struct StoryLaunchView: View {
 
     private var persistedStoryURL: URL? {
         store.isPersistedStoryActive ? store.persistedStoryURL : nil
+    }
+}
+
+enum StoryCatalogContextAction: Equatable {
+    case copyStoryLink
+    case createPlaylist
+    case deleteStory
+}
+
+struct StoryCatalogContextMenuBuilder {
+    static func actions(for item: StoryLaunchItem) -> [StoryCatalogContextAction] {
+        var actions: [StoryCatalogContextAction] = []
+        if StoryDeepLink.url(for: item) != nil {
+            actions.append(.copyStoryLink)
+        }
+        actions.append(.createPlaylist)
+        if item.source != .bundled {
+            actions.append(.deleteStory)
+        }
+        return actions
     }
 }
 
@@ -128,6 +150,7 @@ private struct StoryCatalogSection: View {
     let stories: [StoryLaunchItem]
     let onSelectStory: (StoryLaunchItem) -> Void
     let onDeleteStory: (StoryLaunchItem) -> Void
+    let onCreatePlaylist: (StoryLaunchItem) -> Void
     @State private var pendingDelete: StoryLaunchItem?
 
     var body: some View {
@@ -145,15 +168,24 @@ private struct StoryCatalogSection: View {
                             StoryCatalogCard(item: item)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("story-catalog-card")
                         .contextMenu {
-                            if let storyLink = StoryDeepLink.url(for: item) {
+                            let menuActions = StoryCatalogContextMenuBuilder.actions(for: item)
+                            if menuActions.contains(.copyStoryLink), let storyLink = StoryDeepLink.url(for: item) {
                                 Button {
                                     UIPasteboard.general.string = storyLink.absoluteString
                                 } label: {
                                     Label("Copy Story Link", systemImage: "doc.on.doc")
                                 }
                             }
-                            if canDelete(item) {
+                            if menuActions.contains(.createPlaylist) {
+                                Button {
+                                    onCreatePlaylist(item)
+                                } label: {
+                                    Label("Create Playlist", systemImage: "music.note.list")
+                                }
+                            }
+                            if menuActions.contains(.deleteStory) {
                                 Button(role: .destructive) {
                                     pendingDelete = item
                                 } label: {
@@ -188,10 +220,6 @@ private struct StoryCatalogSection: View {
                 Text(deleteMessage(for: pendingDelete))
             }
         }
-    }
-
-    private func canDelete(_ item: StoryLaunchItem) -> Bool {
-        item.source != .bundled
     }
 
     private func deleteMessage(for item: StoryLaunchItem) -> String {

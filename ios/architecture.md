@@ -9,7 +9,7 @@ The iOS renderer is a SwiftUI app that loads a story package, parses the MDX-bas
 - `StoryPackageLoader` loads `story.mdx` and resolves `assets/` paths into absolute URLs.
 - Story selection uses a toolbar picker with `fileImporter` to open bundled or on-device story packages; the store keeps security-scoped access active while a picked story is rendered.
 - Launch catalog items expose deterministic deep-link codes and can be opened via `apple-music-stories://story/<code>` (single-slash variant also supported).
-- Story cards support long-press actions including `Copy Story Link`.
+- Story cards support long-press actions for `Copy Story Link` and `Create Playlist`.
 - Errors from loading are surfaced as `StoryLoadState.failed`.
 
 ### Story parsing + models

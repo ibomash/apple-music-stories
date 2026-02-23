@@ -123,7 +123,8 @@ final class StorySnapshotTests: XCTestCase {
             onPickStory: {},
             onLoadStoryURL: {},
             onDeleteStory: {},
-            onDeleteCatalogStory: { _ in }
+            onDeleteCatalogStory: { _ in },
+            onCreatePlaylist: { _ in }
         )
         assertSnapshot(for: view, named: "launch-diagnostics")
     }
